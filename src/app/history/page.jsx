@@ -4,18 +4,27 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import { History, ArrowDownCircle, ArrowUpCircle, Trash2, Calendar, User, XCircle } from 'lucide-react';
 
+// ✅ ใช้ตัวแปร Environment สำหรับ Base URL (ถ้าไม่มีใช้ localhost)
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
 export default function HistoryPage() {
     const [logs, setLogs] = useState([]);
-    const [filteredLogs, setFilteredLogs] = useState([]); // ✅ เก็บข้อมูลที่กรองแล้ว
+    const [filteredLogs, setFilteredLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedDate, setSelectedDate] = useState(''); // ✅ State วันที่เลือก
+    const [selectedDate, setSelectedDate] = useState('');
 
-    // ดึงข้อมูลประวัติ
+    // ✅ ฟังก์ชันช่วยแปลงลิงก์รูป (สำคัญมาก)
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url; // ถ้าเป็นลิงก์ Supabase (http...) ให้ใช้ได้เลย
+        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+    };
+
     const fetchHistory = async () => {
         try {
             const res = await api.get('/history');
             setLogs(res.data);
-            setFilteredLogs(res.data); // เริ่มต้นให้แสดงทั้งหมด
+            setFilteredLogs(res.data);
         } catch (err) {
             console.error("Failed to fetch history:", err);
         } finally {
@@ -27,26 +36,22 @@ export default function HistoryPage() {
         fetchHistory();
     }, []);
 
-    // ✅ Effect สำหรับกรองข้อมูลเมื่อวันที่เปลี่ยน
     useEffect(() => {
         if (selectedDate) {
             const filtered = logs.filter(item => {
-                // แปลง created_at เป็น YYYY-MM-DD เพื่อเทียบกับ selectedDate
                 const itemDate = new Date(item.created_at).toISOString().split('T')[0];
                 return itemDate === selectedDate;
             });
             setFilteredLogs(filtered);
         } else {
-            setFilteredLogs(logs); // ถ้าไม่เลือกวันที่ ให้แสดงทั้งหมด
+            setFilteredLogs(logs);
         }
     }, [selectedDate, logs]);
 
-    // ฟังก์ชันเคลียร์ตัวกรอง
     const clearFilter = () => {
         setSelectedDate('');
     };
 
-    // ฟังก์ชันจัดรูปแบบวันที่
     const formatDate = (dateString) => {
         if (!dateString) return "-";
         const date = new Date(dateString);
@@ -81,7 +86,7 @@ export default function HistoryPage() {
                         <h1 className="text-3xl font-bold text-gray-800">ประวัติการทำรายการ</h1>
                     </div>
 
-                    {/* ✅ ส่วนเลือกวันที่ */}
+                    {/* ส่วนเลือกวันที่ */}
                     <div className="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
                         <Calendar size={20} className="text-gray-500 ml-2" />
                         <span className="text-gray-600 text-sm font-medium">เลือกวันที่:</span>
@@ -135,9 +140,10 @@ export default function HistoryPage() {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
+                                                        {/* ✅ ใช้ getImageUrl แสดงรูปสินค้า */}
                                                         {item.image_url ? (
                                                             <img
-                                                                src={`http://localhost:3000${item.image_url}`}
+                                                                src={getImageUrl(item.image_url)}
                                                                 alt={item.product_name}
                                                                 className="w-10 h-10 rounded-md object-cover border border-gray-200"
                                                             />
