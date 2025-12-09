@@ -3,7 +3,10 @@ import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
-import { Package, CheckCircle, MapPin, ChevronDown, Search, Truck } from 'lucide-react'; // เพิ่มไอคอน Truck
+import { Truck, CheckCircle, MapPin, ChevronDown, Search } from 'lucide-react';
+
+// ✅ 1. เพิ่มตัวแปร Base URL
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function StockOutPage() {
     const [products, setProducts] = useState([]);
@@ -19,6 +22,13 @@ export default function StockOutPage() {
         reason: ''
     });
 
+    // ✅ 2. เพิ่มฟังก์ชันช่วยแปลงลิงก์รูป (แก้ปัญหารูปไม่ขึ้นบน Vercel)
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url; // ถ้าเป็นลิ้งค์ Supabase ให้ใช้เลย
+        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+    };
+
     const fetchProducts = async () => {
         try {
             const res = await api.get('/products');
@@ -32,7 +42,6 @@ export default function StockOutPage() {
         fetchProducts();
     }, []);
 
-    // ปิด Dropdown เมื่อคลิกที่อื่น
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -70,10 +79,7 @@ export default function StockOutPage() {
             return Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาระบุจำนวนที่มากกว่า 0', 'warning');
         }
 
-        // Helper ดึงรายการสต๊อก
         const stockList = selectedProduct.stocks || selectedProduct.stock_details || [];
-
-        // Logic เบิกออก: เช็คของพอไหม
         const selectedWhStock = stockList.find(s => s.warehouse_id === parseInt(form.warehouseId))?.quantity || 0;
 
         if (qty > selectedWhStock) {
@@ -127,9 +133,8 @@ export default function StockOutPage() {
             <div className="flex-1 p-8 flex flex-col items-center">
 
                 <h1 className="text-3xl font-bold mb-8 text-gray-800 flex items-center gap-3">
-                    {/* 🔵 เปลี่ยนเป็นสีน้ำเงิน Blue */}
                     <span className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
-                        <Truck size={32} /> {/* เปลี่ยนไอคอนเป็นรถบรรทุกเพื่อให้เข้ากับ Stock Out */}
+                        <Truck size={32} />
                     </span>
                     เบิกสินค้าออก (Stock Out)
                 </h1>
@@ -141,9 +146,7 @@ export default function StockOutPage() {
                         <label className="block text-sm font-bold text-gray-700 mb-2">1. เลือกสินค้าที่จะเบิก</label>
 
                         <div
-                            className={`w-full p-4 border rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer transition-colors ${
-                                // 🔵 Blue Border & Ring
-                                isDropdownOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-300 hover:border-blue-400'
+                            className={`w-full p-4 border rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer transition-colors ${isDropdownOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-300 hover:border-blue-400'
                                 }`}
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         >
@@ -151,7 +154,8 @@ export default function StockOutPage() {
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 overflow-hidden shrink-0">
                                         {selectedProduct.image_url ? (
-                                            <img src={`http://localhost:3000${selectedProduct.image_url}`} className="w-full h-full object-cover" alt={selectedProduct.name} />
+                                            // ✅ 3. เรียกใช้ getImageUrl ตรงนี้
+                                            <img src={getImageUrl(selectedProduct.image_url)} className="w-full h-full object-cover" alt={selectedProduct.name} />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Pic</div>
                                         )}
@@ -175,7 +179,6 @@ export default function StockOutPage() {
                                         <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
                                         <input
                                             type="text" autoFocus placeholder="พิมพ์ชื่อ หรือ รหัสสินค้า..."
-                                            // 🔵 Blue Focus
                                             className="w-full pl-10 p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                                             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                                         />
@@ -185,11 +188,11 @@ export default function StockOutPage() {
                                     {filteredProducts.length > 0 ? (
                                         filteredProducts.map(product => (
                                             <div key={product.id} onClick={() => handleSelectProduct(product)}
-                                                // 🔵 Blue Hover
                                                 className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors">
                                                 <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden shrink-0">
                                                     {product.image_url ? (
-                                                        <img src={`http://localhost:3000${product.image_url}`} className="w-full h-full object-cover" alt={product.name} />
+                                                        // ✅ 4. เรียกใช้ getImageUrl ใน List ด้วย
+                                                        <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" alt={product.name} />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Pic</div>
                                                     )}
@@ -224,15 +227,13 @@ export default function StockOutPage() {
                                     <div
                                         key={idx}
                                         onClick={() => handleSelectWarehouse(stock.warehouse_id)}
-                                        // 🔵 Blue Active Card
                                         className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${parseInt(form.warehouseId) === stock.warehouse_id
-                                                ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]'
-                                                : 'border-gray-200 hover:border-blue-200 hover:shadow-sm bg-white'
+                                            ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]'
+                                            : 'border-gray-200 hover:border-blue-200 hover:shadow-sm bg-white'
                                             }`}
                                     >
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-2 text-gray-700 font-bold">
-                                                {/* 🔵 Blue Icon */}
                                                 <MapPin size={18} className={parseInt(form.warehouseId) === stock.warehouse_id ? 'text-blue-500' : 'text-gray-400'} />
                                                 {stock.warehouse_name}
                                             </div>
@@ -262,7 +263,6 @@ export default function StockOutPage() {
                             <label className="block text-sm font-bold text-gray-700 mb-2">3. จำนวนที่จะเบิก</label>
                             <input
                                 type="number" min="1" placeholder="0"
-                                // 🔵 Blue Focus
                                 className={`w-full p-4 border rounded-xl outline-none transition-all text-xl font-bold ${!form.warehouseId
                                     ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
                                     : 'bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800'
@@ -278,7 +278,6 @@ export default function StockOutPage() {
                             <label className="block text-sm font-bold text-gray-700 mb-2">4. หมายเหตุ / นำไปใช้ที่ไหน</label>
                             <input
                                 type="text" placeholder="เช่น ใช้ในโครงการ A, เบิกเปลี่ยนของเสีย"
-                                // 🔵 Blue Focus
                                 className={`w-full p-4 border rounded-xl outline-none transition-all text-gray-800 ${!form.warehouseId
                                     ? 'bg-gray-100 border-gray-200 cursor-not-allowed'
                                     : 'bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
