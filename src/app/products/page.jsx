@@ -4,14 +4,14 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-// ⭐ เพิ่ม MapPin เข้ามาใน import เพื่อใช้เป็นไอคอนหน้าชื่อคลัง
 import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin } from 'lucide-react';
 import Barcode from 'react-barcode';
 
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "ครุภัณฑ์"];
 const UNITS = ["ชิ้น", "กล่อง", "แพ็ค", "โหล", "เครื่อง", "ชุด", "อัน", "ตัว"];
 
-const API_URL = "http://localhost:3000";
+// ✅ แก้ไข 1: ใช้ตัวแปร Environment เพื่อให้รองรับทั้ง Local และ Vercel
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function ProductsPage() {
     const [products, setProducts] = useState([]);
@@ -34,6 +34,13 @@ export default function ProductsPage() {
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
     const barcodeRef = useRef(null);
+
+    // ✅ แก้ไข 2: ฟังก์ชันช่วยแปลงลิงก์รูป (สำคัญมากสำหรับ Supabase)
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url; // ถ้าเป็นลิงก์ Supabase (http...) ให้ใช้ได้เลย
+        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+    };
 
     const fetchProducts = () => {
         api.get(`/products`).then(res => {
@@ -177,7 +184,11 @@ export default function ProductsPage() {
         }
 
         try {
-            await api.post("/products", data);
+            // ✅ แก้ไข 3: ใส่ headers: undefined เพื่อบังคับให้ Browser จัดการ FormData เอง (กันพลาด)
+            await api.post("/products", data, {
+                headers: { "Content-Type": undefined }
+            });
+
             Swal.fire({ icon: "success", title: "สำเร็จ", text: "บันทึกเรียบร้อย", timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
             fetchProducts();
@@ -235,26 +246,26 @@ export default function ProductsPage() {
                                 <th className="p-4">รหัสสินค้า</th>
                                 <th className="p-4">ชื่อสินค้า</th>
                                 <th className="p-4">หมวดหมู่</th>
-                                {/* ⭐ 1. ปรับหัวตารางให้สื่อความหมาย */}
                                 <th className="p-4 text-right min-w-[180px]">คงเหลือแยกคลัง</th>
                                 <th className="p-4 text-center">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredProducts.map((p) => (
-                                // ใช้ align-top เพื่อให้ถ้ารายการคลังยาว ข้อมูลจะเริ่มจากด้านบน
                                 <tr key={p.id} className="border-t hover:bg-gray-50 align-top">
                                     <td className="p-3 text-center">
+                                        {/* ✅ เรียกใช้ getImageUrl ตรงนี้ */}
                                         {p.image_url ?
-                                            <img src={`${API_URL}${p.image_url}`} className="w-12 h-12 rounded object-cover mx-auto" alt={p.name} />
+                                            <img src={getImageUrl(p.image_url)} className="w-12 h-12 rounded object-cover mx-auto" alt={p.name} />
                                             : <div className="w-12 h-12 bg-gray-100 rounded mx-auto flex items-center justify-center text-xs text-gray-400">No Img</div>
                                         }
                                     </td>
 
                                     <td className="p-3 text-center cursor-pointer group relative" onClick={() => setSelectedSku(p.sku)}>
                                         <div className="flex flex-col items-center justify-center">
+                                            {/* ✅ เรียกใช้ getImageUrl ตรงนี้ด้วย */}
                                             {p.barcode_url ?
-                                                <img src={`${API_URL}${p.barcode_url}`} className="h-8 mx-auto" alt="barcode" />
+                                                <img src={getImageUrl(p.barcode_url)} className="h-8 mx-auto" alt="barcode" />
                                                 : "-"
                                             }
                                             <div className="text-[10px] text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
@@ -267,23 +278,18 @@ export default function ProductsPage() {
                                     <td className="p-3 pt-4">{p.name}</td>
                                     <td className="p-3 pt-4">{p.category}</td>
 
-                                    {/* ⭐ 2. ส่วนแสดงผลสต๊อกแยกคลัง (จุดที่แก้หลัก) */}
                                     <td className="p-3 text-right pt-4">
-                                        {/* ยอดรวมทั้งหมด (ตัวใหญ่) */}
                                         <div className="font-bold text-lg text-gray-800 mb-2">
                                             {p.total_stock} <span className="text-sm font-normal text-gray-500">{p.unit}</span>
                                         </div>
 
-                                        {/* รายการแยกคลัง (Loop แสดง) */}
                                         <div className="flex flex-col gap-1 border-t pt-2 mt-1">
                                             {p.stocks && p.stocks.length > 0 ? (
                                                 p.stocks.map((stock, index) => (
-                                                    // ตรวจสอบว่าต้องมีของ > 0 ถึงจะแสดง (หรือถ้าอยากแสดงหมดก็ลบเงื่อนไข && stock.quantity > 0 ออก)
                                                     stock.quantity > 0 && (
                                                         <div key={index} className="text-sm flex justify-between items-center bg-gray-50 px-2 py-1 rounded">
                                                             <div className="flex items-center gap-1 text-gray-600 text-xs">
                                                                 <MapPin size={12} className="text-blue-500" />
-                                                                {/* ใช้ Optional Chaining ป้องกัน error ถ้าไม่มีชื่อ */}
                                                                 {stock.warehouse_name || stock.warehouse?.name || 'คลังหลัก'}
                                                             </div>
                                                             <div className="font-semibold text-gray-800">
