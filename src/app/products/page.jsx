@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-
+// เพิ่ม MapPin และไอคอนอื่นๆ ให้ครบ
 import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin } from 'lucide-react';
 import Barcode from 'react-barcode';
 
@@ -175,10 +175,7 @@ export default function ProductsPage() {
             data.append("warehouse_id", formData.warehouse_id);
         }
 
-        // เช็คว่ามีไฟล์รูปไหม
-        if (imageFile) {
-            data.append("image", imageFile);
-        }
+        if (imageFile) data.append("image", imageFile);
 
         if (formData.sku) {
             try {
@@ -188,36 +185,18 @@ export default function ProductsPage() {
         }
 
         try {
-            // -----------------------------------------------------------
-            // 🛡️ ใช้ fetch แทน axios (ไม้ตายแก้ปัญหารูปไม่เข้า)
-            // -----------------------------------------------------------
-            const token = Cookies.get('token');
-
-            // ใช้ URL เต็มๆ จาก Environment หรือ Localhost
-            const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/products`;
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    // ⚠️ ห้ามใส่ Content-Type เด็ดขาด! fetch จะใส่ให้เองถูกต้อง 100%
-                },
-                body: data
+            // ✅ จุดแก้ไขสำคัญ: บังคับ Content-Type เป็น undefined 
+            // เพื่อให้ Browser จัดการ FormData Boundary เอง (แก้ปัญหารูปไม่เข้า)
+            await api.post("/products", data, {
+                headers: { "Content-Type": undefined }
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
-            // -----------------------------------------------------------
 
             Swal.fire({ icon: "success", title: "สำเร็จ", text: "บันทึกเรียบร้อย", timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
             fetchProducts();
-
         } catch (err) {
-            console.error("Submit Error:", err);
-            Swal.fire("ผิดพลาด", err.message || "บันทึกไม่สำเร็จ", "error");
+            console.error(err); // ดู error ใน console
+            Swal.fire("ผิดพลาด", "บันทึกไม่สำเร็จ", "error");
         }
     };
 
@@ -239,7 +218,7 @@ export default function ProductsPage() {
             <Sidebar />
             <div className="flex-1 p-8">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800">จัดการสินค้า112</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">จัดการสินค้า</h1>
                     {role === "ADMIN" && (
                         <button className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center" onClick={handleOpenModal}>
                             <Plus /> เพิ่มสินค้า
