@@ -4,13 +4,14 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
+// เพิ่ม MapPin และไอคอนอื่นๆ ให้ครบ
 import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin } from 'lucide-react';
 import Barcode from 'react-barcode';
 
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "ครุภัณฑ์"];
 const UNITS = ["ชิ้น", "กล่อง", "แพ็ค", "โหล", "เครื่อง", "ชุด", "อัน", "ตัว"];
 
-// ✅ แก้ไข 1: ใช้ตัวแปร Environment เพื่อให้รองรับทั้ง Local และ Vercel
+// ใช้ตัวแปร Environment สำหรับ Base URL (ถ้าไม่มีใช้ localhost)
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function ProductsPage() {
@@ -35,9 +36,9 @@ export default function ProductsPage() {
     const fileInputRef = useRef(null);
     const barcodeRef = useRef(null);
 
-    // ✅ แก้ไข 2: ฟังก์ชันช่วยแปลงลิงก์รูป (สำคัญมากสำหรับ Supabase)
+    // ✅ ฟังก์ชันช่วยแปลงลิงก์รูป (แก้ปัญหารูปไม่ขึ้น)
     const getImageUrl = (url) => {
-        if (!url) return null;
+        if (!url) return null; // หรือใส่ลิงก์รูป Placeholder
         if (url.startsWith('http')) return url; // ถ้าเป็นลิงก์ Supabase (http...) ให้ใช้ได้เลย
         return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
     };
@@ -184,7 +185,8 @@ export default function ProductsPage() {
         }
 
         try {
-            // ✅ แก้ไข 3: ใส่ headers: undefined เพื่อบังคับให้ Browser จัดการ FormData เอง (กันพลาด)
+            // ✅ จุดแก้ไขสำคัญ: บังคับ Content-Type เป็น undefined 
+            // เพื่อให้ Browser จัดการ FormData Boundary เอง (แก้ปัญหารูปไม่เข้า)
             await api.post("/products", data, {
                 headers: { "Content-Type": undefined }
             });
@@ -193,6 +195,7 @@ export default function ProductsPage() {
             setIsModalOpen(false);
             fetchProducts();
         } catch (err) {
+            console.error(err); // ดู error ใน console
             Swal.fire("ผิดพลาด", "บันทึกไม่สำเร็จ", "error");
         }
     };
@@ -318,7 +321,7 @@ export default function ProductsPage() {
                 </div>
             </div>
 
-            {/* MODAL เพิ่มสินค้า */}
+            {/* ส่วน MODAL คงเดิม (โค้ดคุณถูกต้องแล้วในส่วน UI) */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
                     <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
