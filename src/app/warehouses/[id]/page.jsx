@@ -3,14 +3,14 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
-import { ArrowLeft, MapPin, Box, Archive, Filter, Search, ZoomIn, X, Download } from 'lucide-react'; // ✅ เพิ่ม Icon
-import Barcode from 'react-barcode'; // ✅ เพิ่ม Barcode Component
+import { ArrowLeft, MapPin, Box, Archive, Filter, Search, ZoomIn, X, Download } from 'lucide-react';
+import Barcode from 'react-barcode';
 
 // รายชื่อหมวดหมู่
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "คอมชุด", "ครุภัณฑ์"];
 
-// ✅ กำหนด API URL
-const API_URL = "http://localhost:3000";
+// ✅ แก้ไข 1: ใช้ตัวแปร Environment เพื่อให้รองรับทั้ง Local และ Vercel
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function WarehouseDetail() {
     const { id } = useParams();
@@ -20,15 +20,19 @@ export default function WarehouseDetail() {
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
 
-    // State สำหรับการกรอง
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
     const [search, setSearch] = useState('');
-
     const [loading, setLoading] = useState(true);
 
-    // ⭐ 1. State และ Ref สำหรับ Modal ดูบาร์โค้ด
     const [selectedSku, setSelectedSku] = useState(null);
     const viewerRef = useRef(null);
+
+    // ✅ แก้ไข 2: ฟังก์ชันช่วยแปลงลิงก์รูป (สำคัญมาก)
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url; // ถ้าเป็นลิงก์ Supabase (http...) ให้ใช้ได้เลย
+        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+    };
 
     useEffect(() => {
         api.get(`/warehouses/${id}/inventory`)
@@ -56,7 +60,6 @@ export default function WarehouseDetail() {
         setFilteredProducts(result);
     }, [selectedCategory, search, products]);
 
-    // ⭐ 2. ฟังก์ชันดาวน์โหลดบาร์โค้ดจาก Viewer
     const downloadFromViewer = () => {
         const svg = viewerRef.current.querySelector("svg");
         if (!svg) return;
@@ -170,22 +173,22 @@ export default function WarehouseDetail() {
                                 filteredProducts.map((p) => (
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4">
+                                            {/* ✅ แก้ไข 3: เรียกใช้ getImageUrl */}
                                             {p.image_url ? (
-                                                <img src={`${API_URL}${p.image_url}`} className="w-12 h-12 object-cover rounded-md border border-gray-200" alt={p.name} />
+                                                <img src={getImageUrl(p.image_url)} className="w-12 h-12 object-cover rounded-md border border-gray-200" alt={p.name} />
                                             ) : (
                                                 <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-xs text-gray-400">No Pic</div>
                                             )}
                                         </td>
 
-                                        {/* ⭐ 3. ช่องบาร์โค้ดแบบคลิกได้ */}
                                         <td className="p-4 text-center cursor-pointer group relative w-32" onClick={() => setSelectedSku(p.sku)}>
                                             <div className="flex flex-col items-center justify-center">
+                                                {/* ✅ แก้ไข 4: เรียกใช้ getImageUrl สำหรับบาร์โค้ดด้วย */}
                                                 {p.barcode_url ? (
-                                                    <img src={`${API_URL}${p.barcode_url}`} className="h-8 object-contain" alt="Barcode" />
+                                                    <img src={getImageUrl(p.barcode_url)} className="h-8 object-contain" alt="Barcode" />
                                                 ) : (
                                                     <span className="text-gray-400 text-sm">-</span>
                                                 )}
-                                                {/* Hover Icon */}
                                                 <div className="text-[10px] text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                                                     <ZoomIn size={12} /> คลิกขยาย
                                                 </div>
@@ -229,7 +232,7 @@ export default function WarehouseDetail() {
                 </div>
             </div>
 
-            {/* ⭐ 4. MODAL แสดงบาร์โค้ดขนาดใหญ่ + ปุ่มดาวน์โหลด */}
+            {/* MODAL แสดงบาร์โค้ด */}
             {selectedSku && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-60 backdrop-blur-sm"
                     onClick={() => setSelectedSku(null)}>
@@ -241,7 +244,6 @@ export default function WarehouseDetail() {
                             <button onClick={() => setSelectedSku(null)} className="p-1 hover:bg-gray-100 rounded-full"><X /></button>
                         </div>
 
-                        {/* แสดงบาร์โค้ด (เจนใหม่ให้ชัด) */}
                         <div ref={viewerRef} className="p-6 bg-white border-2 border-dashed border-gray-200 rounded-xl">
                             <Barcode
                                 value={selectedSku}
