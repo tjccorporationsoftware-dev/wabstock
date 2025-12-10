@@ -337,7 +337,7 @@ export default function ProductsPage() {
                                 <th className="p-4 text-left text-gray-800">รูปบาร์โค้ด</th>
                                 <th className="p-4 text-left text-gray-800">รหัสสินค้า</th>
                                 <th className="p-4 text-left text-gray-800">ชื่อสินค้า</th>
-                                <th className="p-4 text-left text-gray-800">หมวดหมู่</th>
+                                <th className="p-4 text-left text-gray-800">หมวดหมู่000</th>
                                 <th className="p-4 text-right min-w-[180px] text-gray-800">คงเหลือแยกคลัง</th>
                                 <th className="p-4 text-center text-gray-800">จัดการ</th>
                             </tr>
