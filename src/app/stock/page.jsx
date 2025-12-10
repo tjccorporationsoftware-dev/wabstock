@@ -3,305 +3,440 @@ import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
-import { Truck, CheckCircle, MapPin, ChevronDown, Search } from 'lucide-react';
+import { Truck, Search, Plus, Trash2, ShoppingCart, X, MapPin, Package, AlertTriangle, ScanBarcode, Warehouse, Check } from 'lucide-react';
 
-// ✅ 1. เพิ่มตัวแปร Base URL
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-export default function StockOutPage() {
-    const [products, setProducts] = useState([]);
-    const [selectedProduct, setSelectedProduct] = useState(null);
+export default function StockOutModernPage() {
+    // --- Data State ---
+    const [allProducts, setAllProducts] = useState([]);
+    const [warehouses, setWarehouses] = useState([]); // ✅ เพิ่มรายการคลังสินค้า
+    const [cart, setCart] = useState([]);
+    const [reason, setReason] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef(null);
 
-    const [form, setForm] = useState({
-        productId: '',
-        warehouseId: '',
-        quantity: '',
-        reason: ''
-    });
+    // --- Filter State ---
+    const [selectedFilterWarehouse, setSelectedFilterWarehouse] = useState('ALL'); // ✅ ตัวแปรเก็บคลังที่เลือก (ALL = ทั้งหมด)
 
-    // ✅ 2. เพิ่มฟังก์ชันช่วยแปลงลิงก์รูป (แก้ปัญหารูปไม่ขึ้นบน Vercel)
+    // --- Modal State ---
+    const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
+    const [selectedProductForAdd, setSelectedProductForAdd] = useState(null);
+
+    const [isLoading, setIsLoading] = useState(true);
+    const searchInputRef = useRef(null);
+
     const getImageUrl = (url) => {
         if (!url) return null;
-        if (url.startsWith('http')) return url; // ถ้าเป็นลิ้งค์ Supabase ให้ใช้เลย
-        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+        if (url.startsWith('http')) return url;
+        return `${BASE_API_URL}${url}`;
     };
 
-    const fetchProducts = async () => {
+    // 1. โหลดข้อมูล (สินค้า + คลังสินค้า)
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    const fetchInitialData = async () => {
+        setIsLoading(true);
         try {
-            const res = await api.get('/products');
-            setProducts(res.data);
+            const [productsRes, warehousesRes] = await Promise.all([
+                api.get('/products'),
+                api.get('/warehouses')
+            ]);
+            setAllProducts(productsRes.data);
+            setWarehouses(warehousesRes.data);
         } catch (error) {
-            console.error("Error fetching products:", error);
+            console.error("Fetch Error:", error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchProducts();
-    }, []);
+    // 2. ฟังก์ชันเมื่อกดที่สินค้า
+    const handleProductClick = (product) => {
+        // เช็คสินค้าหมดสต็อกรวม
+        if (!product.stocks || product.stocks.every(s => s.quantity <= 0)) {
+            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            Toast.fire({ icon: 'warning', title: 'สินค้าหมดสต็อก' });
+            return;
+        }
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsDropdownOpen(false);
+        // กรณีเลือกคลังแบบเจาะจงไว้แล้ว -> หยิบจากคลังนั้นเลย
+        if (selectedFilterWarehouse !== 'ALL') {
+            const targetStock = product.stocks.find(s => s.warehouse_id === selectedFilterWarehouse);
+            if (targetStock && targetStock.quantity > 0) {
+                addToCart(product, targetStock);
+            } else {
+                Swal.fire('สินค้าหมด', 'สินค้านี้ไม่มีในคลังที่คุณเลือก', 'warning');
             }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+            return;
+        }
 
-    const handleSelectProduct = (product) => {
-        setSelectedProduct(product);
-        setForm({
-            productId: product.id,
-            warehouseId: '',
-            quantity: '',
-            reason: ''
+        // กรณีเลือก "ทั้งหมด" -> ใช้ Logic เดิม (ถ้ามีหลายคลังให้ถาม)
+        const availableWarehouses = product.stocks.filter(s => s.quantity > 0);
+        if (availableWarehouses.length === 1) {
+            addToCart(product, availableWarehouses[0]);
+        } else {
+            setSelectedProductForAdd(product);
+            setIsWarehouseModalOpen(true);
+        }
+    };
+
+    // 3. เพิ่มลงตะกร้า
+    const addToCart = (product, stockInfo) => {
+        const warehouseId = stockInfo.warehouse_id || stockInfo.warehouse?.id;
+        const warehouseName = stockInfo.warehouse_name || stockInfo.warehouse?.name;
+        const uniqueKey = `${product.id}-${warehouseId}`;
+        const exists = cart.find(item => item.uniqueKey === uniqueKey);
+
+        if (exists) {
+            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+            Toast.fire({ icon: 'info', title: 'รายการนี้อยู่ในตะกร้าแล้ว' });
+        } else {
+            const newItem = {
+                uniqueKey: uniqueKey,
+                productId: product.id,
+                name: product.name,
+                sku: product.sku,
+                unit: product.unit,
+                image_url: product.image_url,
+                warehouseId: warehouseId,
+                warehouseName: warehouseName,
+                maxQty: stockInfo.quantity,
+                inputQty: ''
+            };
+            setCart([...cart, newItem]);
+        }
+
+        setIsWarehouseModalOpen(false);
+        setSelectedProductForAdd(null);
+    };
+
+    const removeFromCart = (uniqueKey) => {
+        setCart(cart.filter(item => item.uniqueKey !== uniqueKey));
+    };
+
+    const updateCartQty = (uniqueKey, value) => {
+        setCart(cart.map(item => {
+            if (item.uniqueKey === uniqueKey) {
+                const val = parseInt(value);
+                if (val > item.maxQty) return { ...item, inputQty: item.maxQty };
+                return { ...item, inputQty: value };
+            }
+            return item;
+        }));
+    };
+
+    const handleSubmit = async () => {
+        if (cart.length === 0) return Swal.fire('ตะกร้าว่าง', 'กรุณาเลือกสินค้าก่อน', 'warning');
+        if (!reason.trim()) return Swal.fire('ขาดเหตุผล', 'กรุณาระบุเหตุผลด้านล่างขวา', 'warning');
+
+        const invalidItems = cart.filter(item => !item.inputQty || parseInt(item.inputQty) <= 0);
+        if (invalidItems.length > 0) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาระบุจำนวนสินค้าให้ถูกต้อง', 'warning');
+
+        Swal.fire({
+            title: 'ยืนยันการเบิก?',
+            text: `ต้องการเบิกสินค้า ${cart.length} รายการ`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยันการเบิก',
+            confirmButtonColor: '#d33'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+                try {
+                    await Promise.all(cart.map(item =>
+                        api.post('/stock-out', {
+                            productId: item.productId,
+                            warehouseId: item.warehouseId,
+                            quantity: parseInt(item.inputQty),
+                            reason: reason
+                        })
+                    ));
+                    Swal.fire('สำเร็จ', 'ตัดสต๊อกเรียบร้อย', 'success');
+                    setCart([]);
+                    setReason('');
+                    // โหลดข้อมูลใหม่ (สินค้าเท่านั้น)
+                    const res = await api.get('/products');
+                    setAllProducts(res.data);
+                } catch (err) {
+                    Swal.fire('Error', 'เกิดข้อผิดพลาด', 'error');
+                }
+            }
         });
-        setIsDropdownOpen(false);
-        setSearchQuery('');
     };
 
-    const handleSelectWarehouse = (whId) => {
-        setForm(prev => ({ ...prev, warehouseId: whId }));
-    };
+    // ✅ Filter Logic: กรองทั้ง Search และ Warehouse
+    const filteredProducts = allProducts.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (selectedFilterWarehouse === 'ALL') return matchesSearch;
 
-        if (!form.productId) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกสินค้า', 'warning');
-        if (!form.warehouseId) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกคลังสินค้า', 'warning');
-
-        const qty = parseInt(form.quantity);
-        if (isNaN(qty) || qty <= 0) {
-            return Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาระบุจำนวนที่มากกว่า 0', 'warning');
-        }
-
-        const stockList = selectedProduct.stocks || selectedProduct.stock_details || [];
-        const selectedWhStock = stockList.find(s => s.warehouse_id === parseInt(form.warehouseId))?.quantity || 0;
-
-        if (qty > selectedWhStock) {
-            return Swal.fire({
-                icon: 'error',
-                title: 'สินค้าไม่พอ',
-                text: `คลังนี้มีสินค้าเหลือแค่ ${selectedWhStock} ชิ้น (คุณขอเบิก ${qty})`
-            });
-        }
-
-        try {
-            await api.post('/stock-out', {
-                ...form,
-                quantity: qty
-            });
-
-            Swal.fire({
-                icon: 'success',
-                title: 'บันทึกการเบิกสำเร็จ',
-                text: `${selectedProduct.name} จำนวน ${qty} ${selectedProduct.unit}`,
-                timer: 2000,
-                showConfirmButton: false
-            });
-
-            setForm(prev => ({ ...prev, quantity: '', reason: '' }));
-
-            const res = await api.get('/products');
-            setProducts(res.data);
-            const updatedProduct = res.data.find(p => p.id === selectedProduct.id);
-            if (updatedProduct) setSelectedProduct(updatedProduct);
-
-        } catch (err) {
-            console.error(err);
-            Swal.fire('ผิดพลาด', err.response?.data?.error || 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
-        }
-    };
-
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const getProductStockList = (product) => {
-        if (!product) return [];
-        return product.stocks || product.stock_details || [];
-    };
+        // ถ้าเลือกคลัง ต้องเช็คว่ามีสต็อกในคลังนั้น > 0 ไหม
+        const hasStockInWarehouse = p.stocks?.some(s => s.warehouse_id === selectedFilterWarehouse && s.quantity > 0);
+        return matchesSearch && hasStockInWarehouse;
+    });
 
     return (
-        <div className="flex bg-gray-50 min-h-screen">
+        <div className="flex bg-[#F3F4F6] min-h-screen font-sans">
             <Sidebar />
-            <div className="flex-1 p-8 flex flex-col items-center">
 
-                <h1 className="text-3xl font-bold mb-8 text-gray-800 flex items-center gap-3">
-                    <span className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
-                        <Truck size={32} />
-                    </span>
-                    เบิกสินค้าออก (Stock Out)
-                </h1>
+            <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden">
 
-                <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-4xl border border-gray-100">
+                {/* ================= LEFT: Catalog & Search ================= */}
+                <div className="flex-1 flex flex-col relative">
 
-                    {/* ---------------- 1. เลือกสินค้า ---------------- */}
-                    <div className="mb-8 relative" ref={dropdownRef}>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">1. เลือกสินค้าที่จะเบิก</label>
-
-                        <div
-                            className={`w-full p-4 border rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer transition-colors ${isDropdownOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-300 hover:border-blue-400'
-                                }`}
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        >
-                            {selectedProduct ? (
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                                        {selectedProduct.image_url ? (
-                                            // ✅ 3. เรียกใช้ getImageUrl ตรงนี้
-                                            <img src={getImageUrl(selectedProduct.image_url)} className="w-full h-full object-cover" alt={selectedProduct.name} />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Pic</div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-gray-800">{selectedProduct.name}</div>
-                                        <div className="text-sm text-gray-500">SKU: {selectedProduct.sku} | คงเหลือรวม: {selectedProduct.total_stock} {selectedProduct.unit}</div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <span className="text-gray-400">-- ค้นหาและเลือกสินค้า --</span>
-                            )}
-                            <ChevronDown size={20} className="text-gray-400" />
+                    {/* Header: Title + Search + Warehouse Filter */}
+                    <div className="p-6 bg-white shadow-sm z-10 flex flex-col gap-4">
+                        <div className="flex justify-between items-center">
+                            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                <Truck className="text-blue-600" /> เบิกสินค้า (Stock Out)
+                            </h1>
                         </div>
 
-                        {/* Dropdown Content */}
-                        {isDropdownOpen && (
-                            <div className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-hidden flex flex-col">
-                                <div className="p-3 border-b border-gray-100 bg-gray-50 sticky top-0">
-                                    <div className="relative">
-                                        <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
-                                        <input
-                                            type="text" autoFocus placeholder="พิมพ์ชื่อ หรือ รหัสสินค้า..."
-                                            className="w-full pl-10 p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                                            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="overflow-y-auto flex-1">
-                                    {filteredProducts.length > 0 ? (
-                                        filteredProducts.map(product => (
-                                            <div key={product.id} onClick={() => handleSelectProduct(product)}
-                                                className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors">
-                                                <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden shrink-0">
+                        {/* Search Bar */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <Search className="h-6 w-6 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                            </div>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                className="block w-full pl-12 pr-12 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-lg shadow-inner"
+                                placeholder="พิมพ์ชื่อหรือรหัสสินค้า..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        {/* ✅ Warehouse Filter Bar (Pills) */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                            <button
+                                onClick={() => setSelectedFilterWarehouse('ALL')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedFilterWarehouse === 'ALL'
+                                        ? 'bg-gray-800 text-white border-gray-800 shadow-md'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                                    }`}
+                            >
+                                <Warehouse size={16} /> ทั้งหมด
+                                {selectedFilterWarehouse === 'ALL' && <Check size={14} />}
+                            </button>
+
+                            {warehouses.map(wh => (
+                                <button
+                                    key={wh.id}
+                                    onClick={() => setSelectedFilterWarehouse(wh.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedFilterWarehouse === wh.id
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                                        }`}
+                                >
+                                    {wh.name}
+                                    {selectedFilterWarehouse === wh.id && <Check size={14} />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Product Grid */}
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gray-50/50">
+                        {isLoading ? (
+                            <div className="flex justify-center items-center h-64 text-gray-400">กำลังโหลดข้อมูล...</div>
+                        ) : filteredProducts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-64 text-gray-400 opacity-60">
+                                <Package size={64} className="mb-4" />
+                                <p className="text-lg">ไม่พบสินค้า {selectedFilterWarehouse !== 'ALL' && 'ในคลังนี้'}</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-20">
+                                {filteredProducts.map(product => {
+                                    // เช็คว่าสินค้าหมดสต็อกทุกคลังหรือไม่
+                                    const isOutOfStock = !product.stocks || product.stocks.every(s => s.quantity <= 0);
+
+                                    // คำนวณสต็อกที่จะโชว์
+                                    let displayStock = product.total_stock;
+                                    let stockLabel = "รวมทุกคลัง";
+
+                                    // ถ้าเลือกคลังเจาะจง ให้โชว์สต็อกเฉพาะคลังนั้น
+                                    if (selectedFilterWarehouse !== 'ALL') {
+                                        const stock = product.stocks?.find(s => s.warehouse_id === selectedFilterWarehouse);
+                                        displayStock = stock ? stock.quantity : 0;
+                                        stockLabel = "ในคลังนี้";
+                                    }
+
+                                    return (
+                                        <div
+                                            key={product.id}
+                                            onClick={() => handleProductClick(product)}
+                                            className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition-all duration-200 relative overflow-hidden group
+                                                ${isOutOfStock || displayStock <= 0 ? 'opacity-60 grayscale cursor-not-allowed' : 'hover:shadow-md hover:border-blue-300 cursor-pointer active:scale-[0.98]'}
+                                            `}
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-16 h-16 bg-gray-100 rounded-xl overflow-hidden shrink-0 border border-gray-100">
                                                     {product.image_url ? (
-                                                        // ✅ 4. เรียกใช้ getImageUrl ใน List ด้วย
-                                                        <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" alt={product.name} />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Pic</div>
-                                                    )}
+                                                        <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" />
+                                                    ) : <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Pic</div>}
                                                 </div>
-                                                <div>
-                                                    <div className="text-sm font-semibold text-gray-800">{product.name}</div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {product.sku} • คงเหลือ <span className="text-blue-600 font-bold">{product.total_stock}</span> {product.unit}
+
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{product.name}</h3>
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-mono bg-gray-50 px-2 py-0.5 rounded-md w-fit">
+                                                        {product.sku}
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))
-                                    ) : (
-                                        <div className="p-4 text-center text-gray-400 text-sm">ไม่พบสินค้า</div>
-                                    )}
-                                </div>
+
+                                            <div className="mt-4 flex items-end justify-between">
+                                                <div className="text-xs text-gray-500">
+                                                    {isOutOfStock ? (
+                                                        <span className="text-red-500 font-bold flex items-center gap-1"><AlertTriangle size={12} /> สินค้าหมด</span>
+                                                    ) : (
+                                                        <span>{stockLabel}</span>
+                                                    )}
+                                                </div>
+                                                <div className={`text-xl font-bold ${displayStock <= 0 ? 'text-gray-400' : 'text-blue-600'}`}>
+                                                    {displayStock} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
+                                                </div>
+                                            </div>
+
+                                            {!isOutOfStock && displayStock > 0 && (
+                                                <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
+                </div>
 
-                    {/* ---------------- 2. เลือกคลังสินค้า ---------------- */}
-                    <div className="mb-8">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">2. เลือกคลังสินค้าที่จะเบิก</label>
+                {/* ================= RIGHT: Cart ================= */}
+                <div className="w-full md:w-[400px] lg:w-[450px] bg-white border-l shadow-2xl z-20 flex flex-col h-full">
+                    <div className="p-5 border-b bg-gray-50/50 backdrop-blur-sm sticky top-0">
+                        <h2 className="font-bold text-gray-800 flex items-center gap-2 text-lg">
+                            <ShoppingCart className="text-blue-600 fill-blue-100" /> รายการที่เลือก ({cart.length})
+                        </h2>
+                    </div>
 
-                        {!selectedProduct ? (
-                            <div className="p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center text-gray-400">
-                                กรุณาเลือกสินค้าก่อน
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#FAFAFA]">
+                        {cart.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-3">
+                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <ShoppingCart size={40} className="opacity-30" />
+                                </div>
+                                <p className="text-sm">ยังไม่มีรายการ</p>
                             </div>
-                        ) : getProductStockList(selectedProduct).length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {getProductStockList(selectedProduct).map((stock, idx) => (
-                                    <div
-                                        key={idx}
-                                        onClick={() => handleSelectWarehouse(stock.warehouse_id)}
-                                        className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${parseInt(form.warehouseId) === stock.warehouse_id
-                                            ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]'
-                                            : 'border-gray-200 hover:border-blue-200 hover:shadow-sm bg-white'
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center gap-2 text-gray-700 font-bold">
-                                                <MapPin size={18} className={parseInt(form.warehouseId) === stock.warehouse_id ? 'text-blue-500' : 'text-gray-400'} />
-                                                {stock.warehouse_name}
-                                            </div>
-                                            {parseInt(form.warehouseId) === stock.warehouse_id && (
-                                                <CheckCircle size={20} className="text-blue-500" />
-                                            )}
+                        ) : (
+                            cart.map(item => (
+                                <div key={item.uniqueKey} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative group animate-in slide-in-from-right-4 duration-300">
+                                    <button onClick={() => removeFromCart(item.uniqueKey)} className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all">
+                                        <X size={16} />
+                                    </button>
+
+                                    <div className="flex gap-3 mb-3 pr-6">
+                                        <div className="w-12 h-12 bg-gray-50 rounded-lg overflow-hidden shrink-0">
+                                            {item.image_url ? <img src={getImageUrl(item.image_url)} className="w-full h-full object-cover" /> : null}
                                         </div>
-                                        <div className="mt-3">
-                                            <span className="text-xs text-gray-500">คงเหลือในคลังนี้</span>
-                                            <div className={`text-2xl font-bold ${parseInt(form.warehouseId) === stock.warehouse_id ? 'text-blue-600' : 'text-gray-800'}`}>
-                                                {stock.quantity} <span className="text-sm font-normal text-gray-500">{selectedProduct.unit}</span>
+                                        <div>
+                                            <div className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</div>
+                                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                                <MapPin size={10} /> {item.warehouseName}
                                             </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="p-6 bg-red-50 rounded-xl border border-red-200 text-center text-red-500 font-medium">
-                                🚫 สินค้านี้หมดสต็อกในทุกคลัง (ไม่สามารถเบิกได้)
-                            </div>
+
+                                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
+                                        <span className="text-xs text-gray-500 ml-2">คงเหลือ: {item.maxQty}</span>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                className="w-20 p-1.5 bg-white border border-gray-200 rounded-lg text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                value={item.inputQty}
+                                                onChange={(e) => updateCartQty(item.uniqueKey, e.target.value)}
+                                                autoFocus
+                                            />
+                                            <span className="text-xs font-bold text-gray-600 w-8">{item.unit}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
                         )}
                     </div>
 
-                    {/* ---------------- 3. ระบุจำนวนและเหตุผล ---------------- */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">3. จำนวนที่จะเบิก</label>
+                    <div className="p-5 border-t bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                        <div className="mb-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">เหตุผลในการเบิก</label>
                             <input
-                                type="number" min="1" placeholder="0"
-                                className={`w-full p-4 border rounded-xl outline-none transition-all text-xl font-bold ${!form.warehouseId
-                                    ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800'
-                                    }`}
-                                value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })}
-                                disabled={!form.warehouseId}
-                            />
-                            {!form.warehouseId && selectedProduct && (
-                                <p className="text-xs text-red-400 mt-1">* กรุณาเลือกคลังสินค้าก่อน</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">4. หมายเหตุ / นำไปใช้ที่ไหน</label>
-                            <input
-                                type="text" placeholder="เช่น ใช้ในโครงการ A, เบิกเปลี่ยนของเสีย"
-                                className={`w-full p-4 border rounded-xl outline-none transition-all text-gray-800 ${!form.warehouseId
-                                    ? 'bg-gray-100 border-gray-200 cursor-not-allowed'
-                                    : 'bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                                    }`}
-                                value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })}
-                                disabled={!form.warehouseId}
+                                type="text"
+                                placeholder="เช่น นำไปใช้หน้างาน A..."
+                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
                             />
                         </div>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={cart.length === 0}
+                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg shadow-red-200 flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${cart.length === 0
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                                : 'bg-linear-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'}`}
+                        >
+                            <Truck size={20} /> ยืนยันการเบิก
+                        </button>
                     </div>
-
-                    {/* ปุ่มยืนยัน (Gradient สีน้ำเงิน) */}
-                    <button
-                        onClick={handleSubmit}
-                        disabled={!form.warehouseId || !form.quantity || parseInt(form.quantity) <= 0}
-                        className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${!form.warehouseId || !form.quantity || parseInt(form.quantity) <= 0
-                            ? 'bg-gray-300 cursor-not-allowed shadow-none'
-                            : 'bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-xl'
-                            }`}
-                    >
-                        ยืนยันการเบิกออก
-                    </button>
-
                 </div>
             </div>
+
+            {/* ================= MODAL: เลือกคลังสินค้า (แสดงเฉพาะตอนเลือก Filter = All) ================= */}
+            {isWarehouseModalOpen && selectedProductForAdd && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800">เลือกคลังสินค้าต้นทาง</h3>
+                                <p className="text-sm text-gray-500">สินค้านี้มีอยู่ในหลายคลัง</p>
+                            </div>
+                            <button onClick={() => setIsWarehouseModalOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                                <X size={20} className="text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            {selectedProductForAdd.stocks.map((stock, idx) => (
+                                <button
+                                    key={idx}
+                                    disabled={stock.quantity <= 0}
+                                    onClick={() => addToCart(selectedProductForAdd, stock)}
+                                    className={`w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group ${stock.quantity <= 0
+                                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                            : 'border-gray-100 bg-white hover:border-blue-500 hover:bg-blue-50'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg ${stock.quantity > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
+                                            <MapPin size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="font-bold text-gray-800 group-hover:text-blue-700">{stock.warehouse_name || stock.warehouse?.name}</div>
+                                            <div className="text-xs text-gray-500">คลังเก็บสินค้า</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className={`text-xl font-bold ${stock.quantity > 0 ? 'text-gray-800' : 'text-red-400'}`}>
+                                            {stock.quantity}
+                                        </div>
+                                        <div className="text-xs text-gray-400">{selectedProductForAdd.unit}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

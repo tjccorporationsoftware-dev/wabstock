@@ -1,2 +1,9 @@
 @import "tailwindcss";
 
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+    /* bg-gray-50 = พื้นหลังสีเทาอ่อนๆ (เกือบขาว) */
+    /* text-gray-900 = ตัวหนังสือสีเทาเข้มเกือบดำ */
+  }
+}
