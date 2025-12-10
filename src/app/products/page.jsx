@@ -4,13 +4,16 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin } from 'lucide-react';
+import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin, FileSpreadsheet } from 'lucide-react';
 import Barcode from 'react-barcode';
+
+// ✅ 1. เปลี่ยนมาใช้ exceljs และ file-saver
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "ครุภัณฑ์"];
 const UNITS = ["ชิ้น", "กล่อง", "แพ็ค", "โหล", "เครื่อง", "ชุด", "อัน", "ตัว"];
 
-// ✅ แก้ไข 1: ใช้ตัวแปร Environment เพื่อให้รองรับทั้ง Local และ Vercel
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function ProductsPage() {
@@ -35,11 +38,10 @@ export default function ProductsPage() {
     const fileInputRef = useRef(null);
     const barcodeRef = useRef(null);
 
-    // ✅ แก้ไข 2: ฟังก์ชันช่วยแปลงลิงก์รูป (สำคัญมากสำหรับ Supabase)
     const getImageUrl = (url) => {
         if (!url) return null;
-        if (url.startsWith('http')) return url; // ถ้าเป็นลิงก์ Supabase (http...) ให้ใช้ได้เลย
-        return `${BASE_API_URL}${url}`; // ถ้าเป็น path เก่า ให้ต่อท้าย API
+        if (url.startsWith('http')) return url;
+        return `${BASE_API_URL}${url}`;
     };
 
     const fetchProducts = () => {
@@ -74,6 +76,106 @@ export default function ProductsPage() {
         }
         setFilteredProducts(result);
     }, [search, selectedCategory, products]);
+
+    // ✅ 2. ฟังก์ชัน Export Excel แบบมีรูปภาพ (ใช้ ExcelJS)
+    // ✅ 2. ฟังก์ชัน Export Excel แบบมีรูปภาพ (ใช้ ExcelJS)
+    const handleExportExcel = async () => {
+        // แสดง Loading เพราะการโหลดรูปอาจใช้เวลา
+        Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Products');
+
+            // กำหนดหัวตาราง (Columns)
+            worksheet.columns = [
+                { header: 'วันที่ข้อมูล', key: 'date', width: 20 },
+                { header: 'รูปบาร์โค้ด', key: 'barcode_img', width: 25 }, // ช่องสำหรับรูป
+                { header: 'รหัสสินค้า (SKU)', key: 'sku', width: 20 },
+                { header: 'ชื่อสินค้า', key: 'name', width: 30 },
+                { header: 'หมวดหมู่', key: 'category', width: 15 },
+                { header: 'หน่วยนับ', key: 'unit', width: 10 },
+                { header: 'คงเหลือรวม', key: 'total_stock', width: 15 },
+                // ➡️ แก้ไข: เปลี่ยนเป็นแสดงเฉพาะชื่อคลัง
+                { header: 'คลังสินค้าที่เก็บ', key: 'warehouse_names', width: 50 },
+            ];
+
+            const now = new Date();
+            const dateStr = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH')}`;
+
+            // วนลูปข้อมูลสินค้า
+            for (let i = 0; i < filteredProducts.length; i++) {
+                const p = filteredProducts[i];
+
+                // จัดการข้อมูลสต๊อก
+                const warehouseNames = p.stocks && p.stocks.length > 0
+                    // ➡️ แก้ไข: map ให้เหลือแค่ชื่อคลังสินค้าเท่านั้น (เอา : ${s.quantity} ออก)
+                    ? p.stocks.map(s => `${s.warehouse_name || 'คลังหลัก'}`).join(', ')
+                    : '-';
+
+                // เพิ่มแถวข้อมูล (Text)
+                const row = worksheet.addRow({
+                    date: dateStr,
+                    sku: p.sku,
+                    name: p.name,
+                    category: p.category,
+                    unit: p.unit,
+                    total_stock: p.total_stock,
+                    // ➡️ แก้ไข: ใช้ key และตัวแปรที่เปลี่ยนชื่อแล้ว
+                    warehouse_names: warehouseNames,
+                    barcode_img: '' // ปล่อยว่างไว้ใส่รูป
+                });
+
+                // ตั้งความสูงของแถวให้พอดีกับรูป
+                row.height = 60;
+
+                // ✅ จัดการรูปภาพบาร์โค้ด (ส่วนนี้เหมือนเดิม)
+                if (p.barcode_url) {
+                    try {
+                        const imgUrl = getImageUrl(p.barcode_url);
+                        // ดึงข้อมูลรูปภาพจาก URL
+                        const response = await fetch(imgUrl);
+                        const buffer = await response.arrayBuffer();
+
+                        // เพิ่มรูปลงใน Workbook
+                        const imageId = workbook.addImage({
+                            buffer: buffer,
+                            extension: 'png',
+                        });
+
+                        // ฝังรูปลงใน Cell (Column ที่ 2 = index 1)
+                        worksheet.addImage(imageId, {
+                            tl: { col: 1, row: row.number - 1 }, // มุมซ้ายบน (col 1, row i)
+                            ext: { width: 150, height: 75 }      // ขนาดรูป
+                        });
+                    } catch (err) {
+                        console.error("Error loading image for Excel:", err);
+                        // ถ้ารูปโหลดไม่ได้ ให้ใส่ Text แทน
+                        row.getCell('barcode_img').value = 'No Image';
+                    }
+                } else {
+                    row.getCell('barcode_img').value = '-';
+                }
+            }
+
+            // จัดรูปแบบให้สวยงาม (กึ่งกลาง)
+            worksheet.eachRow((row) => {
+                row.eachCell((cell) => {
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                });
+            });
+
+            // สร้างไฟล์และดาวน์โหลด
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Stock_With_Images_${now.toISOString().split('T')[0]}.xlsx`);
+
+            Swal.close(); // ปิด Loading
+
+        } catch (error) {
+            console.error(error);
+            Swal.fire("เกิดข้อผิดพลาด", "ไม่สามารถสร้างไฟล์ Excel ได้", "error");
+        }
+    };
 
     const handleOpenModal = () => {
         setFormData({
@@ -184,16 +286,13 @@ export default function ProductsPage() {
         }
 
         try {
-            // ✅ แก้ไข 3: ใช้ fetch แทน axios และไม่ตั้ง Content-Type (ให้ browser จัดการเอง)
-            // เพื่อแก้ปัญหาการส่งไฟล์รูปภาพ
-            const token = Cookies.get('token'); 
+            const token = Cookies.get('token');
             const url = `${BASE_API_URL}/products`;
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    // ⚠️ ห้ามใส่ Content-Type: application/json เด็ดขาด
                 },
                 body: data
             });
@@ -202,7 +301,7 @@ export default function ProductsPage() {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Upload failed');
             }
-            
+
             Swal.fire({ icon: "success", title: "สำเร็จ", text: "บันทึกเรียบร้อย", timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
             fetchProducts();
@@ -231,11 +330,22 @@ export default function ProductsPage() {
             <div className="flex-1 p-8">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-800">จัดการสินค้า</h1>
-                    {role === "ADMIN" && (
-                        <button className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center" onClick={handleOpenModal}>
-                            <Plus /> เพิ่มสินค้า
+
+                    {/* ✅ ปุ่ม Export Excel */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleExportExcel}
+                            className="bg-green-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-green-700 transition shadow-sm"
+                        >
+                            <FileSpreadsheet size={20} /> Export Excel (มีรูป)
                         </button>
-                    )}
+
+                        {role === "ADMIN" && (
+                            <button className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-blue-700 transition shadow-sm" onClick={handleOpenModal}>
+                                <Plus /> เพิ่มสินค้า
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -269,7 +379,6 @@ export default function ProductsPage() {
                             {filteredProducts.map((p) => (
                                 <tr key={p.id} className="border-t hover:bg-gray-50 align-top">
                                     <td className="p-3 text-center">
-                                        {/* ✅ แก้ไข 4: เรียกใช้ getImageUrl ตรงนี้ */}
                                         {p.image_url ?
                                             <img src={getImageUrl(p.image_url)} className="w-12 h-12 rounded object-cover mx-auto" alt={p.name} />
                                             : <div className="w-12 h-12 bg-gray-100 rounded mx-auto flex items-center justify-center text-xs text-gray-400">No Img</div>
