@@ -1,31 +1,28 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react'; // ✅ 1. เพิ่ม useEffect และ useState
+import { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
-import { LayoutDashboard, Box, ArrowRightLeft, LogOut, History, Warehouse, UserCircle } from 'lucide-react'; // ✅ เพิ่ม UserCircle
+// ✅ 1. เพิ่มไอคอน Users เข้ามา
+import { LayoutDashboard, Box, ArrowRightLeft, LogOut, History, Warehouse, UserCircle, Users } from 'lucide-react';
 
 export default function Sidebar() {
     const router = useRouter();
     const pathname = usePathname();
 
-    // ✅ 2. สร้าง State สำหรับเก็บข้อมูลผู้ใช้
     const [user, setUser] = useState({ name: '', role: '' });
 
-    // ✅ 3. ดึงข้อมูลจาก Cookie เมื่อโหลดหน้าเว็บ
     useEffect(() => {
-        // ดึงค่าจาก Cookies (ต้องมั่นใจว่าตอน Login ได้ set 'user_name' ไว้แล้ว)
+        // ดึงค่าจาก Cookies
         const name = Cookies.get('user_name') || 'ผู้ใช้งาน';
         const role = Cookies.get('user_role') || 'STAFF';
-
         setUser({ name, role });
     }, []);
 
     const handleLogout = () => {
-        // ลบ Cookies ทั้งหมดตอนออก
         Cookies.remove('token');
         Cookies.remove('user_role');
-        Cookies.remove('user_name'); // ลบชื่อด้วย
+        Cookies.remove('user_name');
         router.push('/login');
     };
 
@@ -42,7 +39,7 @@ export default function Sidebar() {
 
             <h1 className="text-xl font-bold mb-6 text-center text-blue-400">Stock Manager</h1>
 
-            {/* ✅ 4. ส่วนแสดงข้อมูลผู้ใช้ (User Profile) */}
+            {/* ส่วนแสดงข้อมูลผู้ใช้ */}
             <div className="mb-6 p-3 bg-slate-800 rounded-lg flex items-center gap-3 border border-slate-700">
                 <div className="text-gray-300">
                     <UserCircle size={40} strokeWidth={1.5} />
@@ -57,6 +54,7 @@ export default function Sidebar() {
             </div>
 
             <nav className="flex-1 space-y-2 overflow-y-auto">
+                {/* เมนูหลักทั่วไป */}
                 {menuItems.map((item) => (
                     <Link
                         key={item.href}
@@ -67,6 +65,17 @@ export default function Sidebar() {
                         {item.icon} {item.name}
                     </Link>
                 ))}
+
+                {/* ✅ 2. เมนูเฉพาะ ADMIN: จัดการผู้ใช้งาน */}
+                {user.role === 'ADMIN' && (
+                    <Link
+                        href="/users"
+                        className={`flex items-center gap-3 p-3 rounded transition-colors ${pathname === '/users' ? 'bg-blue-600' : 'hover:bg-slate-800'
+                            }`}
+                    >
+                        <Users size={20} /> จัดการผู้ใช้งาน
+                    </Link>
+                )}
             </nav>
 
             <button
