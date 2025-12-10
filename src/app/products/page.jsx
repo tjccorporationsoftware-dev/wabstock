@@ -1,12 +1,12 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
-import api from '@/lib/axios'; // ✅ ใช้ตัวนี้เป็นหลักในการเชื่อมต่อ Server
+import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin, FileSpreadsheet } from 'lucide-react';
+// เพิ่ม Edit ไอคอน
+import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, FileSpreadsheet, Edit } from 'lucide-react';
 import Barcode from 'react-barcode';
-
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -23,13 +23,16 @@ export default function ProductsPage() {
     const [role, setRole] = useState('');
     const [warehouses, setWarehouses] = useState([]);
 
+    // State สำหรับ Modal และการแก้ไข
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null); // เก็บ ID สินค้าที่กำลังแก้ไข (null = เพิ่มใหม่)
     const [selectedSku, setSelectedSku] = useState(null);
     const viewerRef = useRef(null);
 
     const [formData, setFormData] = useState({
         sku: '', name: '', category: CATEGORIES[1], unit: UNITS[0],
-        cost_price: '', sale_price: '', reorder_point: 10, initial_stock: '', warehouse_id: ''
+        cost_price: '', sale_price: '', reorder_point: 10,
+        initial_stock: '', warehouse_id: '' // ใช้เฉพาะตอนเพิ่มใหม่
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -91,7 +94,6 @@ export default function ProductsPage() {
                 { header: 'หมวดหมู่', key: 'category', width: 15 },
                 { header: 'หน่วยนับ', key: 'unit', width: 10 },
                 { header: 'คงเหลือรวม', key: 'total_stock', width: 15 },
-                { header: 'คลังสินค้าที่เก็บ', key: 'warehouse_names', width: 50 },
             ];
 
             const now = new Date();
@@ -99,10 +101,6 @@ export default function ProductsPage() {
 
             for (let i = 0; i < filteredProducts.length; i++) {
                 const p = filteredProducts[i];
-                const warehouseNames = p.stocks && p.stocks.length > 0
-                    ? p.stocks.map(s => `${s.warehouse_name || 'คลังหลัก'}`).join(', ')
-                    : '-';
-
                 const row = worksheet.addRow({
                     date: dateStr,
                     sku: p.sku,
@@ -110,7 +108,6 @@ export default function ProductsPage() {
                     category: p.category,
                     unit: p.unit,
                     total_stock: p.total_stock,
-                    warehouse_names: warehouseNames,
                     barcode_img: ''
                 });
 
@@ -127,7 +124,6 @@ export default function ProductsPage() {
                             ext: { width: 150, height: 75 }
                         });
                     } catch (err) {
-                        console.error("Error loading image for Excel:", err);
                         row.getCell('barcode_img').value = 'No Image';
                     }
                 } else {
@@ -142,23 +138,43 @@ export default function ProductsPage() {
             });
 
             const buffer = await workbook.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), `Stock_With_Images_${now.toISOString().split('T')[0]}.xlsx`);
+            saveAs(new Blob([buffer]), `Stock_Products_${now.toISOString().split('T')[0]}.xlsx`);
             Swal.close();
-
         } catch (error) {
             console.error(error);
             Swal.fire("เกิดข้อผิดพลาด", "ไม่สามารถสร้างไฟล์ Excel ได้", "error");
         }
     };
 
-    const handleOpenModal = () => {
-        setFormData({
-            sku: '', name: '', category: CATEGORIES[1], unit: UNITS[0],
-            cost_price: '', sale_price: '', reorder_point: 10, initial_stock: '',
-            warehouse_id: warehouses[0]?.id || ''
-        });
+    // ✅ ปรับปรุง handleOpenModal: รองรับทั้งเพิ่มและแก้ไข
+    const handleOpenModal = (product = null) => {
+        if (product) {
+            // โหมดแก้ไข
+            setEditingId(product.id);
+            setFormData({
+                sku: product.sku,
+                name: product.name,
+                category: product.category,
+                unit: product.unit,
+                cost_price: product.cost_price || 0,
+                sale_price: product.sale_price || 0,
+                reorder_point: product.reorder_point || 0,
+                initial_stock: '', // ไม่ให้แก้สต็อกที่นี่
+                warehouse_id: ''
+            });
+            setImagePreview(getImageUrl(product.image_url));
+        } else {
+            // โหมดเพิ่มใหม่
+            setEditingId(null);
+            setFormData({
+                sku: '', name: '', category: CATEGORIES[1], unit: UNITS[0],
+                cost_price: '', sale_price: '', reorder_point: 10,
+                initial_stock: '',
+                warehouse_id: warehouses[0]?.id || ''
+            });
+            setImagePreview(null);
+        }
         setImageFile(null);
-        setImagePreview(null);
         setIsModalOpen(true);
     };
 
@@ -232,7 +248,7 @@ export default function ProductsPage() {
         });
     };
 
-    // ✅ ปรับปรุงฟังก์ชันนี้: เปลี่ยน fetch -> api.post เพื่อแก้ปัญหา Connection Refused
+    // ✅ ปรับปรุง handleSubmit: รองรับทั้ง POST (เพิ่ม) และ PUT (แก้ไข)
     const handleSubmit = async (e) => {
         e.preventDefault();
         Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -246,13 +262,15 @@ export default function ProductsPage() {
         data.append("sale_price", formData.sale_price || 0);
         data.append("reorder_point", formData.reorder_point || 0);
 
-        if (formData.initial_stock && formData.warehouse_id) {
+        // ส่งข้อมูลสต็อกเฉพาะตอนเพิ่มใหม่เท่านั้น (แก้ไขไม่ส่ง)
+        if (!editingId && formData.initial_stock && formData.warehouse_id) {
             data.append("initial_stock", formData.initial_stock);
             data.append("warehouse_id", formData.warehouse_id);
         }
 
         if (imageFile) data.append("image", imageFile);
 
+        // สร้างบาร์โค้ดใหม่เฉพาะถ้าไม่มีรูปบาร์โค้ดเดิม หรือมีการเปลี่ยน SKU
         if (formData.sku) {
             try {
                 const barcodeFile = await getBarcodeFile();
@@ -261,11 +279,17 @@ export default function ProductsPage() {
         }
 
         try {
-            // ✅ ใช้ axios instance (api) แทน fetch แบบเดิม
-            // จะช่วยให้ยิงไปที่ IP/Domain ที่ถูกต้องตาม config ของไฟล์ lib/axios
-            await api.post('/products', data, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            if (editingId) {
+                // กรณีแก้ไข (PUT)
+                await api.put(`/products/${editingId}`, data, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            } else {
+                // กรณีเพิ่มใหม่ (POST)
+                await api.post('/products', data, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            }
 
             Swal.fire({ icon: "success", title: "สำเร็จ", text: "บันทึกเรียบร้อย", timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
@@ -302,11 +326,12 @@ export default function ProductsPage() {
                             onClick={handleExportExcel}
                             className="bg-green-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-green-700 transition shadow-sm"
                         >
-                            <FileSpreadsheet size={20} /> Export Excel (มีรูป)
+                            <FileSpreadsheet size={20} /> Export Excel
                         </button>
 
                         {role === "ADMIN" && (
-                            <button className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-blue-700 transition shadow-sm" onClick={handleOpenModal}>
+                            // กดปุ่มเพิ่ม -> ส่ง null ไป handleOpenModal
+                            <button className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-blue-700 transition shadow-sm" onClick={() => handleOpenModal(null)}>
                                 <Plus /> เพิ่มสินค้า
                             </button>
                         )}
@@ -315,7 +340,6 @@ export default function ProductsPage() {
 
                 <div className="flex flex-col md:flex-row gap-4 mb-8">
                     <div className="flex-1 relative">
-                        {/* ปรับสีไอคอนให้เข้มขึ้น */}
                         <Search className="absolute left-3 top-3.5 text-gray-600" size={20} />
                         <input type="text" placeholder="ค้นหา..." className="w-full p-3 pl-10 border rounded-xl"
                             value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -329,17 +353,17 @@ export default function ProductsPage() {
                 </div>
 
                 <div className="bg-white rounded-xl shadow overflow-hidden">
-                    <table className="w-full">
+                    <table className="w-full table-auto">
                         <thead className="bg-gray-100">
                             <tr>
-                                {/* ปรับ Header ให้เข้มขึ้น */}
-                                <th className="p-4 text-left text-gray-800">รูปสินค้า</th>
-                                <th className="p-4 text-left text-gray-800">รูปบาร์โค้ด</th>
-                                <th className="p-4 text-left text-gray-800">รหัสสินค้า</th>
-                                <th className="p-4 text-left text-gray-800">ชื่อสินค้า</th>
-                                <th className="p-4 text-left text-gray-800">หมวดหมู่000</th>
-                                <th className="p-4 text-right min-w-[180px] text-gray-800">คงเหลือแยกคลัง</th>
-                                <th className="p-4 text-center text-gray-800">จัดการ</th>
+                                {/* ✅ หัวข้อคอลัมน์ห้ามตัด (whitespace-nowrap) */}
+                                <th className="p-4 text-left text-gray-800 whitespace-nowrap">รูปสินค้า</th>
+                                <th className="p-4 text-left text-gray-800 whitespace-nowrap">รูปบาร์โค้ด</th>
+                                <th className="p-4 text-left text-gray-800 whitespace-nowrap">รหัสสินค้า</th>
+                                <th className="p-4 text-left text-gray-800 whitespace-nowrap">ชื่อสินค้า</th>
+                                <th className="p-4 text-left text-gray-800 whitespace-nowrap">หมวดหมู่</th>
+                                <th className="p-4 text-center text-gray-800 whitespace-nowrap">คงเหลือ</th>
+                                <th className="p-4 text-center text-gray-800 whitespace-nowrap">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -359,47 +383,39 @@ export default function ProductsPage() {
                                                 : "-"
                                             }
                                             <div className="text-[10px] text-blue-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                                <ZoomIn size={12} className="text-blue-600" /> คลิกเพื่อขยาย
+                                                <ZoomIn size={12} className="text-blue-600" /> ขยาย
                                             </div>
                                         </div>
                                     </td>
 
-                                    {/* ปรับเนื้อหาตารางให้เข้มขึ้น */}
-                                    <td className="p-3 font-mono text-sm pt-4 text-gray-800">{p.sku}</td>
-                                    <td className="p-3 pt-4 text-gray-800">{p.name}</td>
-                                    <td className="p-3 pt-4 text-gray-800">{p.category}</td>
+                                    <td className="p-3 font-mono text-sm pt-4 text-gray-800 whitespace-nowrap">{p.sku}</td>
 
-                                    <td className="p-3 text-right pt-4">
-                                        <div className="font-bold text-lg text-gray-800 mb-2">
-                                            {p.total_stock} <span className="text-sm font-normal text-gray-600">{p.unit}</span>
-                                        </div>
-
-                                        <div className="flex flex-col gap-1 border-t pt-2 mt-1">
-                                            {p.stocks && p.stocks.length > 0 ? (
-                                                p.stocks.map((stock, index) => (
-                                                    stock.quantity > 0 && (
-                                                        <div key={index} className="text-sm flex justify-between items-center bg-gray-50 px-2 py-1 rounded">
-                                                            <div className="flex items-center gap-1 text-gray-700 text-xs">
-                                                                <MapPin size={12} className="text-blue-500" />
-                                                                {stock.warehouse_name || stock.warehouse?.name || 'คลังหลัก'}
-                                                            </div>
-                                                            <div className="font-semibold text-gray-800">
-                                                                {stock.quantity}
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                ))
-                                            ) : (
-                                                <div className="text-xs text-red-400 text-center">ไม่มีสินค้าในคลัง</div>
-                                            )}
-                                        </div>
+                                    {/* ✅ ชื่อสินค้าตัดลงบรรทัดใหม่ได้ (break-words) และจำกัดความกว้าง */}
+                                    <td className="p-3 pt-4 text-gray-800 wrap-break-word whitespace-normal max-w-[250px]">
+                                        {p.name}
                                     </td>
 
+                                    <td className="p-3 pt-4 text-gray-800 whitespace-nowrap">{p.category}</td>
+
+                                    {/* ✅ แสดงแค่ยอดรวม ไม่แยกคลัง */}
                                     <td className="p-3 text-center pt-4">
+                                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${p.total_stock <= p.reorder_point ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                            {p.total_stock} {p.unit}
+                                        </span>
+                                    </td>
+
+                                    <td className="p-3 text-center pt-4 whitespace-nowrap">
                                         {role === "ADMIN" && (
-                                            <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                                                <Trash2 size={18} />
-                                            </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                {/* ปุ่มแก้ไข */}
+                                                <button onClick={() => handleOpenModal(p)} className="text-blue-500 hover:bg-blue-50 p-2 rounded transition">
+                                                    <Edit size={18} />
+                                                </button>
+                                                {/* ปุ่มลบ */}
+                                                <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:bg-red-50 p-2 rounded transition">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
                                         )}
                                     </td>
                                 </tr>
@@ -409,12 +425,13 @@ export default function ProductsPage() {
                 </div>
             </div>
 
-            {/* MODAL เพิ่มสินค้า */}
+            {/* MODAL เพิ่ม/แก้ไข สินค้า */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
                     <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
                         <div className="flex justify-between items-center p-6 border-b">
-                            <h2 className="text-xl font-bold">เพิ่มสินค้าใหม่</h2>
+                            {/* เปลี่ยนหัวข้อตามโหมด */}
+                            <h2 className="text-xl font-bold">{editingId ? "แก้ไขข้อมูลสินค้า" : "เพิ่มสินค้าใหม่"}</h2>
                             <button onClick={() => setIsModalOpen(false)}><X /></button>
                         </div>
                         <div className="p-6 overflow-y-auto">
@@ -453,18 +470,24 @@ export default function ProductsPage() {
                                     <div><label className="font-bold text-sm">หมวดหมู่</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>{CATEGORIES.filter(c => c !== "ทั้งหมด").map(c => <option key={c}>{c}</option>)}</select></div>
                                     <div><label className="font-bold text-sm">หน่วยนับ</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></div>
                                 </div>
-                                <div className="p-4 bg-gray-50 rounded-xl border">
-                                    <label className="font-bold text-sm">ตั้งค่าสต็อกเริ่มต้น</label>
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div className="text-gray-700"><label className="text-xs">คลังสินค้า</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.warehouse_id} onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}>{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
-                                        <div className="text-gray-700"><label className="text-xs">จำนวนเริ่มต้น</label><input type="number" className="w-full p-2 mt-1 border rounded-lg" value={formData.initial_stock} onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })} /></div>
+
+                                {/* ✅ แสดงส่วนนี้เฉพาะตอนเพิ่มใหม่เท่านั้น (แก้ไขไม่ให้แก้สต็อกที่นี่) */}
+                                {!editingId && (
+                                    <div className="p-4 bg-gray-50 rounded-xl border">
+                                        <label className="font-bold text-sm">ตั้งค่าสต็อกเริ่มต้น</label>
+                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                            <div className="text-gray-700"><label className="text-xs">คลังสินค้า</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.warehouse_id} onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}>{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
+                                            <div className="text-gray-700"><label className="text-xs">จำนวนเริ่มต้น</label><input type="number" className="w-full p-2 mt-1 border rounded-lg" value={formData.initial_stock} onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })} /></div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </form>
                         </div>
                         <div className="p-4 border-t flex justify-end gap-3">
                             <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 rounded-lg bg-gray-100">ยกเลิก</button>
-                            <button className="px-5 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2" onClick={handleSubmit}><Save size={18} /> บันทึกสินค้า</button>
+                            <button className="px-5 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2" onClick={handleSubmit}>
+                                <Save size={18} /> {editingId ? "อัปเดตข้อมูล" : "บันทึกสินค้า"}
+                            </button>
                         </div>
                     </div>
                 </div>
