@@ -1,13 +1,12 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
-import api from '@/lib/axios';
+import api from '@/lib/axios'; // ✅ ใช้ตัวนี้เป็นหลักในการเชื่อมต่อ Server
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
 import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, MapPin, FileSpreadsheet } from 'lucide-react';
 import Barcode from 'react-barcode';
 
-// ✅ 1. เปลี่ยนมาใช้ exceljs และ file-saver
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -77,43 +76,33 @@ export default function ProductsPage() {
         setFilteredProducts(result);
     }, [search, selectedCategory, products]);
 
-    // ✅ 2. ฟังก์ชัน Export Excel แบบมีรูปภาพ (ใช้ ExcelJS)
-    // ✅ 2. ฟังก์ชัน Export Excel แบบมีรูปภาพ (ใช้ ExcelJS)
     const handleExportExcel = async () => {
-        // แสดง Loading เพราะการโหลดรูปอาจใช้เวลา
         Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         try {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Products');
 
-            // กำหนดหัวตาราง (Columns)
             worksheet.columns = [
                 { header: 'วันที่ข้อมูล', key: 'date', width: 20 },
-                { header: 'รูปบาร์โค้ด', key: 'barcode_img', width: 25 }, // ช่องสำหรับรูป
+                { header: 'รูปบาร์โค้ด', key: 'barcode_img', width: 25 },
                 { header: 'รหัสสินค้า (SKU)', key: 'sku', width: 20 },
                 { header: 'ชื่อสินค้า', key: 'name', width: 30 },
                 { header: 'หมวดหมู่', key: 'category', width: 15 },
                 { header: 'หน่วยนับ', key: 'unit', width: 10 },
                 { header: 'คงเหลือรวม', key: 'total_stock', width: 15 },
-                // ➡️ แก้ไข: เปลี่ยนเป็นแสดงเฉพาะชื่อคลัง
                 { header: 'คลังสินค้าที่เก็บ', key: 'warehouse_names', width: 50 },
             ];
 
             const now = new Date();
             const dateStr = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH')}`;
 
-            // วนลูปข้อมูลสินค้า
             for (let i = 0; i < filteredProducts.length; i++) {
                 const p = filteredProducts[i];
-
-                // จัดการข้อมูลสต๊อก
                 const warehouseNames = p.stocks && p.stocks.length > 0
-                    // ➡️ แก้ไข: map ให้เหลือแค่ชื่อคลังสินค้าเท่านั้น (เอา : ${s.quantity} ออก)
                     ? p.stocks.map(s => `${s.warehouse_name || 'คลังหลัก'}`).join(', ')
                     : '-';
 
-                // เพิ่มแถวข้อมูล (Text)
                 const row = worksheet.addRow({
                     date: dateStr,
                     sku: p.sku,
@@ -121,36 +110,24 @@ export default function ProductsPage() {
                     category: p.category,
                     unit: p.unit,
                     total_stock: p.total_stock,
-                    // ➡️ แก้ไข: ใช้ key และตัวแปรที่เปลี่ยนชื่อแล้ว
                     warehouse_names: warehouseNames,
-                    barcode_img: '' // ปล่อยว่างไว้ใส่รูป
+                    barcode_img: ''
                 });
 
-                // ตั้งความสูงของแถวให้พอดีกับรูป
                 row.height = 60;
 
-                // ✅ จัดการรูปภาพบาร์โค้ด (ส่วนนี้เหมือนเดิม)
                 if (p.barcode_url) {
                     try {
                         const imgUrl = getImageUrl(p.barcode_url);
-                        // ดึงข้อมูลรูปภาพจาก URL
                         const response = await fetch(imgUrl);
                         const buffer = await response.arrayBuffer();
-
-                        // เพิ่มรูปลงใน Workbook
-                        const imageId = workbook.addImage({
-                            buffer: buffer,
-                            extension: 'png',
-                        });
-
-                        // ฝังรูปลงใน Cell (Column ที่ 2 = index 1)
+                        const imageId = workbook.addImage({ buffer: buffer, extension: 'png' });
                         worksheet.addImage(imageId, {
-                            tl: { col: 1, row: row.number - 1 }, // มุมซ้ายบน (col 1, row i)
-                            ext: { width: 150, height: 75 }      // ขนาดรูป
+                            tl: { col: 1, row: row.number - 1 },
+                            ext: { width: 150, height: 75 }
                         });
                     } catch (err) {
                         console.error("Error loading image for Excel:", err);
-                        // ถ้ารูปโหลดไม่ได้ ให้ใส่ Text แทน
                         row.getCell('barcode_img').value = 'No Image';
                     }
                 } else {
@@ -158,18 +135,15 @@ export default function ProductsPage() {
                 }
             }
 
-            // จัดรูปแบบให้สวยงาม (กึ่งกลาง)
             worksheet.eachRow((row) => {
                 row.eachCell((cell) => {
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
                 });
             });
 
-            // สร้างไฟล์และดาวน์โหลด
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Stock_With_Images_${now.toISOString().split('T')[0]}.xlsx`);
-
-            Swal.close(); // ปิด Loading
+            Swal.close();
 
         } catch (error) {
             console.error(error);
@@ -258,6 +232,7 @@ export default function ProductsPage() {
         });
     };
 
+    // ✅ ปรับปรุงฟังก์ชันนี้: เปลี่ยน fetch -> api.post เพื่อแก้ปัญหา Connection Refused
     const handleSubmit = async (e) => {
         e.preventDefault();
         Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -286,28 +261,19 @@ export default function ProductsPage() {
         }
 
         try {
-            const token = Cookies.get('token');
-            const url = `${BASE_API_URL}/products`;
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: data
+            // ✅ ใช้ axios instance (api) แทน fetch แบบเดิม
+            // จะช่วยให้ยิงไปที่ IP/Domain ที่ถูกต้องตาม config ของไฟล์ lib/axios
+            await api.post('/products', data, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
 
             Swal.fire({ icon: "success", title: "สำเร็จ", text: "บันทึกเรียบร้อย", timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
             fetchProducts();
         } catch (err) {
             console.error(err);
-            Swal.fire("ผิดพลาด", "บันทึกไม่สำเร็จ", "error");
+            const errorMsg = err.response?.data?.error || "บันทึกไม่สำเร็จ";
+            Swal.fire("ผิดพลาด", errorMsg, "error");
         }
     };
 
@@ -331,7 +297,6 @@ export default function ProductsPage() {
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-800">จัดการสินค้า</h1>
 
-                    {/* ✅ ปุ่ม Export Excel */}
                     <div className="flex gap-3">
                         <button
                             onClick={handleExportExcel}
@@ -350,12 +315,13 @@ export default function ProductsPage() {
 
                 <div className="flex flex-col md:flex-row gap-4 mb-8">
                     <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                        {/* ปรับสีไอคอนให้เข้มขึ้น */}
+                        <Search className="absolute left-3 top-3.5 text-gray-600" size={20} />
                         <input type="text" placeholder="ค้นหา..." className="w-full p-3 pl-10 border rounded-xl"
                             value={search} onChange={(e) => setSearch(e.target.value)} />
                     </div>
                     <div className="relative">
-                        <Filter className="absolute left-3 top-3.5 text-gray-500" size={20} />
+                        <Filter className="absolute left-3 top-3.5 text-gray-600" size={20} />
                         <select className="p-3 pl-10 border rounded-xl" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                         </select>
@@ -366,13 +332,14 @@ export default function ProductsPage() {
                     <table className="w-full">
                         <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-4">รูปสินค้า</th>
-                                <th className="p-4">รูปบาร์โค้ด</th>
-                                <th className="p-4">รหัสสินค้า</th>
-                                <th className="p-4">ชื่อสินค้า</th>
-                                <th className="p-4">หมวดหมู่</th>
-                                <th className="p-4 text-right min-w-[180px]">คงเหลือแยกคลัง</th>
-                                <th className="p-4 text-center">จัดการ</th>
+                                {/* ปรับ Header ให้เข้มขึ้น */}
+                                <th className="p-4 text-left text-gray-800">รูปสินค้า</th>
+                                <th className="p-4 text-left text-gray-800">รูปบาร์โค้ด</th>
+                                <th className="p-4 text-left text-gray-800">รหัสสินค้า</th>
+                                <th className="p-4 text-left text-gray-800">ชื่อสินค้า</th>
+                                <th className="p-4 text-left text-gray-800">หมวดหมู่</th>
+                                <th className="p-4 text-right min-w-[180px] text-gray-800">คงเหลือแยกคลัง</th>
+                                <th className="p-4 text-center text-gray-800">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -391,19 +358,20 @@ export default function ProductsPage() {
                                                 <img src={getImageUrl(p.barcode_url)} className="h-full w-40 mx-auto" alt="barcode" />
                                                 : "-"
                                             }
-                                            <div className="text-[10px] text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                                <ZoomIn size={12} /> คลิกเพื่อขยาย
+                                            <div className="text-[10px] text-blue-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                                <ZoomIn size={12} className="text-blue-600" /> คลิกเพื่อขยาย
                                             </div>
                                         </div>
                                     </td>
 
-                                    <td className="p-3 font-mono text-sm pt-4">{p.sku}</td>
-                                    <td className="p-3 pt-4">{p.name}</td>
-                                    <td className="p-3 pt-4">{p.category}</td>
+                                    {/* ปรับเนื้อหาตารางให้เข้มขึ้น */}
+                                    <td className="p-3 font-mono text-sm pt-4 text-gray-800">{p.sku}</td>
+                                    <td className="p-3 pt-4 text-gray-800">{p.name}</td>
+                                    <td className="p-3 pt-4 text-gray-800">{p.category}</td>
 
                                     <td className="p-3 text-right pt-4">
                                         <div className="font-bold text-lg text-gray-800 mb-2">
-                                            {p.total_stock} <span className="text-sm font-normal text-gray-500">{p.unit}</span>
+                                            {p.total_stock} <span className="text-sm font-normal text-gray-600">{p.unit}</span>
                                         </div>
 
                                         <div className="flex flex-col gap-1 border-t pt-2 mt-1">
@@ -411,7 +379,7 @@ export default function ProductsPage() {
                                                 p.stocks.map((stock, index) => (
                                                     stock.quantity > 0 && (
                                                         <div key={index} className="text-sm flex justify-between items-center bg-gray-50 px-2 py-1 rounded">
-                                                            <div className="flex items-center gap-1 text-gray-600 text-xs">
+                                                            <div className="flex items-center gap-1 text-gray-700 text-xs">
                                                                 <MapPin size={12} className="text-blue-500" />
                                                                 {stock.warehouse_name || stock.warehouse?.name || 'คลังหลัก'}
                                                             </div>
@@ -457,7 +425,7 @@ export default function ProductsPage() {
                                         {imagePreview ? (
                                             <img src={imagePreview} className="w-full h-full rounded-xl object-cover" />
                                         ) : (
-                                            <><Upload size={20} className="text-gray-400" /><span className="text-xs text-gray-500 mt-1">รูปสินค้า</span></>
+                                            <><Upload size={20} className="text-gray-500" /><span className="text-xs text-gray-600 mt-1">รูปสินค้า</span></>
                                         )}
                                         <input type="file" ref={fileInputRef} className="hidden" onChange={handleImageChange} />
                                     </div>
@@ -488,8 +456,8 @@ export default function ProductsPage() {
                                 <div className="p-4 bg-gray-50 rounded-xl border">
                                     <label className="font-bold text-sm">ตั้งค่าสต็อกเริ่มต้น</label>
                                     <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div><label className="text-xs">คลังสินค้า</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.warehouse_id} onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}>{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
-                                        <div><label className="text-xs">จำนวนเริ่มต้น</label><input type="number" className="w-full p-2 mt-1 border rounded-lg" value={formData.initial_stock} onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })} /></div>
+                                        <div className="text-gray-700"><label className="text-xs">คลังสินค้า</label><select className="w-full p-2 mt-1 border rounded-lg" value={formData.warehouse_id} onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}>{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
+                                        <div className="text-gray-700"><label className="text-xs">จำนวนเริ่มต้น</label><input type="number" className="w-full p-2 mt-1 border rounded-lg" value={formData.initial_stock} onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })} /></div>
                                     </div>
                                 </div>
                             </form>
@@ -509,7 +477,7 @@ export default function ProductsPage() {
                     <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-200"
                         onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between w-full items-center">
-                            <h3 className="text-lg font-bold text-gray-700">Barcode Viewer</h3>
+                            <h3 className="text-lg font-bold text-gray-800">Barcode Viewer</h3>
                             <button onClick={() => setSelectedSku(null)} className="p-1 hover:bg-gray-100 rounded-full"><X /></button>
                         </div>
                         <div ref={viewerRef} className="p-6 bg-white border-2 border-dashed border-gray-200 rounded-xl">
@@ -522,7 +490,7 @@ export default function ProductsPage() {
                             />
                         </div>
                         <div className="flex gap-3 w-full">
-                            <button onClick={() => setSelectedSku(null)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium">
+                            <button onClick={() => setSelectedSku(null)} className="flex-1 py-2.5 bg-gray-100 text-gray-800 rounded-xl hover:bg-gray-200 font-medium">
                                 ปิดหน้าต่าง
                             </button>
                             <button onClick={downloadFromViewer} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
