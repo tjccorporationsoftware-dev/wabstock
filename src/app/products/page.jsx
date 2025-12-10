@@ -278,9 +278,8 @@ export default function ProductsPage() {
 
                                     <td className="p-3 text-center cursor-pointer group relative" onClick={() => setSelectedSku(p.sku)}>
                                         <div className="flex flex-col items-center justify-center">
-                                            {/* ✅ แก้ไข 5: เรียกใช้ getImageUrl ตรงนี้ด้วย */}
                                             {p.barcode_url ?
-                                                <img src={getImageUrl(p.barcode_url)} className="h-8 mx-auto" alt="barcode" />
+                                                <img src={getImageUrl(p.barcode_url)} className="h-full w-40 mx-auto" alt="barcode" />
                                                 : "-"
                                             }
                                             <div className="text-[10px] text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
