@@ -102,15 +102,21 @@ export default function WarehouseDetail() {
                 <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                            <span className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                <Box size={28} />
-                            </span>
+                            <div className="w-24 h-24 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center overflow-hidden border border-blue-100 shadow-sm">
+                                {warehouse.image_url ? (
+                                    <img
+                                        src={getImageUrl(warehouse.image_url)}
+                                        alt={warehouse.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }}
+                                    />
+                                ) : null}
+                                <div className={`${warehouse.image_url ? 'hidden' : 'block'}`}>
+                                    <Box size={40} />
+                                </div>
+                            </div>
                             {warehouse.name}
                         </h1>
-                        <div className="flex items-center gap-2 text-gray-500 mt-2 ml-14">
-                            <MapPin size={18} />
-                            <span>{warehouse.location || 'ไม่ระบุสถานที่'}</span>
-                        </div>
                     </div>
                     <div className="text-right">
                         <p className="text-sm text-gray-500">รายการทั้งหมด</p>
