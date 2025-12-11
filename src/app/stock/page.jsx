@@ -3,20 +3,21 @@ import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
-import { Truck, Search, Plus, Trash2, ShoppingCart, X, MapPin, Package, AlertTriangle, ScanBarcode, Warehouse, Check } from 'lucide-react';
+// ✅ เพิ่ม Plus เข้าไปใน import แล้วครับ
+import { Truck, Search, Plus, ShoppingCart, X, MapPin, Package, AlertTriangle, ScanBarcode, Warehouse, Check, Box } from 'lucide-react';
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function StockOutModernPage() {
     // --- Data State ---
     const [allProducts, setAllProducts] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // ✅ เพิ่มรายการคลังสินค้า
+    const [warehouses, setWarehouses] = useState([]);
     const [cart, setCart] = useState([]);
     const [reason, setReason] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
     // --- Filter State ---
-    const [selectedFilterWarehouse, setSelectedFilterWarehouse] = useState('ALL'); // ✅ ตัวแปรเก็บคลังที่เลือก (ALL = ทั้งหมด)
+    const [selectedFilterWarehouse, setSelectedFilterWarehouse] = useState('ALL');
 
     // --- Modal State ---
     const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
@@ -54,14 +55,12 @@ export default function StockOutModernPage() {
 
     // 2. ฟังก์ชันเมื่อกดที่สินค้า
     const handleProductClick = (product) => {
-        // เช็คสินค้าหมดสต็อกรวม
         if (!product.stocks || product.stocks.every(s => s.quantity <= 0)) {
             const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
             Toast.fire({ icon: 'warning', title: 'สินค้าหมดสต็อก' });
             return;
         }
 
-        // กรณีเลือกคลังแบบเจาะจงไว้แล้ว -> หยิบจากคลังนั้นเลย
         if (selectedFilterWarehouse !== 'ALL') {
             const targetStock = product.stocks.find(s => s.warehouse_id === selectedFilterWarehouse);
             if (targetStock && targetStock.quantity > 0) {
@@ -72,7 +71,6 @@ export default function StockOutModernPage() {
             return;
         }
 
-        // กรณีเลือก "ทั้งหมด" -> ใช้ Logic เดิม (ถ้ามีหลายคลังให้ถาม)
         const availableWarehouses = product.stocks.filter(s => s.quantity > 0);
         if (availableWarehouses.length === 1) {
             addToCart(product, availableWarehouses[0]);
@@ -156,7 +154,6 @@ export default function StockOutModernPage() {
                     Swal.fire('สำเร็จ', 'ตัดสต๊อกเรียบร้อย', 'success');
                     setCart([]);
                     setReason('');
-                    // โหลดข้อมูลใหม่ (สินค้าเท่านั้น)
                     const res = await api.get('/products');
                     setAllProducts(res.data);
                 } catch (err) {
@@ -166,14 +163,12 @@ export default function StockOutModernPage() {
         });
     };
 
-    // ✅ Filter Logic: กรองทั้ง Search และ Warehouse
     const filteredProducts = allProducts.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
         if (selectedFilterWarehouse === 'ALL') return matchesSearch;
 
-        // ถ้าเลือกคลัง ต้องเช็คว่ามีสต็อกในคลังนั้น > 0 ไหม
         const hasStockInWarehouse = p.stocks?.some(s => s.warehouse_id === selectedFilterWarehouse && s.quantity > 0);
         return matchesSearch && hasStockInWarehouse;
     });
@@ -187,7 +182,7 @@ export default function StockOutModernPage() {
                 {/* ================= LEFT: Catalog & Search ================= */}
                 <div className="flex-1 flex flex-col relative">
 
-                    {/* Header: Title + Search + Warehouse Filter */}
+                    {/* Header */}
                     <div className="p-6 bg-white shadow-sm z-10 flex flex-col gap-4">
                         <div className="flex justify-between items-center">
                             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -209,15 +204,18 @@ export default function StockOutModernPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 autoFocus
                             />
+                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                <ScanBarcode className="h-6 w-6 text-gray-400" />
+                            </div>
                         </div>
 
-                        {/* ✅ Warehouse Filter Bar (Pills) */}
+                        {/* Filter Bar */}
                         <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
                             <button
                                 onClick={() => setSelectedFilterWarehouse('ALL')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedFilterWarehouse === 'ALL'
-                                        ? 'bg-gray-800 text-white border-gray-800 shadow-md'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                                    ? 'bg-gray-800 text-white border-gray-800 shadow-md'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                                     }`}
                             >
                                 <Warehouse size={16} /> ทั้งหมด
@@ -229,8 +227,8 @@ export default function StockOutModernPage() {
                                     key={wh.id}
                                     onClick={() => setSelectedFilterWarehouse(wh.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedFilterWarehouse === wh.id
-                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
                                         }`}
                                 >
                                     {wh.name}
@@ -240,8 +238,8 @@ export default function StockOutModernPage() {
                         </div>
                     </div>
 
-                    {/* Product Grid */}
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gray-50/50">
+                    {/* ✅ List View */}
+                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50/50">
                         {isLoading ? (
                             <div className="flex justify-center items-center h-64 text-gray-400">กำลังโหลดข้อมูล...</div>
                         ) : filteredProducts.length === 0 ? (
@@ -250,64 +248,87 @@ export default function StockOutModernPage() {
                                 <p className="text-lg">ไม่พบสินค้า {selectedFilterWarehouse !== 'ALL' && 'ในคลังนี้'}</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-20">
-                                {filteredProducts.map(product => {
-                                    // เช็คว่าสินค้าหมดสต็อกทุกคลังหรือไม่
-                                    const isOutOfStock = !product.stocks || product.stocks.every(s => s.quantity <= 0);
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50 text-gray-500 font-semibold text-xs uppercase border-b">
+                                        <tr>
+                                            <th className="p-4 w-16 text-center">รูป</th>
+                                            <th className="p-4">ชื่อสินค้า / รหัส</th>
+                                            <th className="p-4 text-center">สถานะ</th>
+                                            <th className="p-4 text-right whitespace-nowrap">คงเหลือ</th>
+                                            <th className="p-4 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredProducts.map(product => {
+                                            const isOutOfStock = !product.stocks || product.stocks.every(s => s.quantity <= 0);
+                                            let displayStock = product.total_stock;
+                                            let stockLabel = "รวมทุกคลัง";
 
-                                    // คำนวณสต็อกที่จะโชว์
-                                    let displayStock = product.total_stock;
-                                    let stockLabel = "รวมทุกคลัง";
+                                            if (selectedFilterWarehouse !== 'ALL') {
+                                                const stock = product.stocks?.find(s => s.warehouse_id === selectedFilterWarehouse);
+                                                displayStock = stock ? stock.quantity : 0;
+                                                stockLabel = "ในคลังนี้";
+                                            }
 
-                                    // ถ้าเลือกคลังเจาะจง ให้โชว์สต็อกเฉพาะคลังนั้น
-                                    if (selectedFilterWarehouse !== 'ALL') {
-                                        const stock = product.stocks?.find(s => s.warehouse_id === selectedFilterWarehouse);
-                                        displayStock = stock ? stock.quantity : 0;
-                                        stockLabel = "ในคลังนี้";
-                                    }
+                                            return (
+                                                <tr
+                                                    key={product.id}
+                                                    onClick={() => handleProductClick(product)}
+                                                    className={`group transition-colors cursor-pointer ${isOutOfStock || displayStock <= 0
+                                                            ? 'bg-gray-50 opacity-60 cursor-not-allowed'
+                                                            : 'hover:bg-blue-50/50'
+                                                        }`}
+                                                >
+                                                    {/* รูปสินค้า */}
+                                                    <td className="p-3 text-center">
+                                                        <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 overflow-hidden mx-auto flex items-center justify-center">
+                                                            {product.image_url ? (
+                                                                <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" />
+                                                            ) : <Box size={20} className="text-gray-300" />}
+                                                        </div>
+                                                    </td>
 
-                                    return (
-                                        <div
-                                            key={product.id}
-                                            onClick={() => handleProductClick(product)}
-                                            className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition-all duration-200 relative overflow-hidden group
-                                                ${isOutOfStock || displayStock <= 0 ? 'opacity-60 grayscale cursor-not-allowed' : 'hover:shadow-md hover:border-blue-300 cursor-pointer active:scale-[0.98]'}
-                                            `}
-                                        >
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-16 h-16 bg-gray-100 rounded-xl overflow-hidden shrink-0 border border-gray-100">
-                                                    {product.image_url ? (
-                                                        <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" />
-                                                    ) : <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Pic</div>}
-                                                </div>
+                                                    {/* ชื่อและรหัส */}
+                                                    <td className="p-3">
+                                                        <div className="font-bold text-gray-800 text-sm mb-1">{product.name}</div>
+                                                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-500">
+                                                            {product.sku}
+                                                        </div>
+                                                    </td>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{product.name}</h3>
-                                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-mono bg-gray-50 px-2 py-0.5 rounded-md w-fit">
-                                                        {product.sku}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                    {/* สถานะ */}
+                                                    <td className="p-3 text-center">
+                                                        {isOutOfStock ? (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-100">
+                                                                <AlertTriangle size={10} /> หมด
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500">{stockLabel}</span>
+                                                        )}
+                                                    </td>
 
-                                            <div className="mt-4 flex items-end justify-between">
-                                                <div className="text-xs text-gray-500">
-                                                    {isOutOfStock ? (
-                                                        <span className="text-red-500 font-bold flex items-center gap-1"><AlertTriangle size={12} /> สินค้าหมด</span>
-                                                    ) : (
-                                                        <span>{stockLabel}</span>
-                                                    )}
-                                                </div>
-                                                <div className={`text-xl font-bold ${displayStock <= 0 ? 'text-gray-400' : 'text-blue-600'}`}>
-                                                    {displayStock} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
-                                                </div>
-                                            </div>
+                                                    {/* คงเหลือ */}
+                                                    <td className="p-3 text-right">
+                                                        <div className={`text-lg font-bold ${displayStock <= 0 ? 'text-gray-400' : 'text-blue-600'}`}>
+                                                            {displayStock}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-400">{product.unit}</div>
+                                                    </td>
 
-                                            {!isOutOfStock && displayStock > 0 && (
-                                                <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                    {/* ปุ่ม + */}
+                                                    <td className="p-3 text-center">
+                                                        {!isOutOfStock && displayStock > 0 && (
+                                                            <button className="p-2 rounded-full bg-blue-100 text-blue-600 opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white">
+                                                                <Plus size={16} />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
@@ -412,8 +433,8 @@ export default function StockOutModernPage() {
                                     disabled={stock.quantity <= 0}
                                     onClick={() => addToCart(selectedProductForAdd, stock)}
                                     className={`w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group ${stock.quantity <= 0
-                                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                                            : 'border-gray-100 bg-white hover:border-blue-500 hover:bg-blue-50'
+                                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                        : 'border-gray-100 bg-white hover:border-blue-500 hover:bg-blue-50'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
