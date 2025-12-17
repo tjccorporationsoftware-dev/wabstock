@@ -583,7 +583,7 @@ export default function StockOutModernPage() {
                                             transition-all active:scale-[0.98]
                                             ${cart.length === 0
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-red-400 to-red-500 text-white shadow-[0_10px_25px_rgba(239,68,68,0.35)] hover:from-red-500 hover:to-red-600'}
+                                    : 'bg-linear-to-r from-red-400 to-red-500 text-white shadow-[0_10px_25px_rgba(239,68,68,0.35)] hover:from-red-500 hover:to-red-600'}
                                         `}
                         >
                             <Truck size={20} /> ยืนยันการเบิก

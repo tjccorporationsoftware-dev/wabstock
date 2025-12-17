@@ -8,11 +8,12 @@ import {
     ArrowLeft, Box, Filter, Search, ZoomIn, X, Download,
     Loader2, UploadCloud, Trash2, CheckSquare, Square,
     AlertCircle, CheckCircle, XCircle, AlertTriangle,
-    History, Package // เพิ่มไอคอน
+    History, Package
 } from 'lucide-react';
 import Barcode from 'react-barcode';
+import Cookies from 'js-cookie';
 
-// --- CONSTANTS ---
+
 const MASTER_CATEGORIES = [
     "เกษตร", "ก่อสร้าง", "สื่อการสอน", "งานไฟฟ้า",
     "เฟอร์นิเจอร์", "ครัวเรือน", "เทคโนโลยี", "เครื่องจักร",
@@ -21,46 +22,37 @@ const MASTER_CATEGORIES = [
     "กีฬา", "เครื่องมือช่าง", "อื่นๆ"
 ];
 
-const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL ||
+    'https://stock-api-backend-iox1.onrender.com';
 
 export default function WarehouseDetail() {
     const { id } = useParams();
     const router = useRouter();
 
-    // Data States
     const [warehouse, setWarehouse] = useState(null);
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
-
-    // UI/Filter States
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
-
-    // History States
     const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
     const [showHistory, setShowHistory] = useState(false);
-
-    // Selection & Modal States
     const [selectedSku, setSelectedSku] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
     const [isDeleting, setIsDeleting] = useState(false);
     const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
 
-    const viewerRef = useRef(null);
-    const fileInputRef = useRef(null);
-
-
-    // Progress States
+    // ✅ Progress States
     const [uploadProgress, setUploadProgress] = useState(0);
     const [importProgress, setImportProgress] = useState(0);
     const [importStatus, setImportStatus] = useState('idle');
-    // idle | uploading | importing | done | error
 
+    const viewerRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const eventSourceRef = useRef(null);
 
-
-    // --- Helpers ---
     const getImageUrl = (url) => {
         if (!url) return null;
         if (url.startsWith('http') || url.startsWith('data:')) return url;
@@ -72,7 +64,6 @@ export default function WarehouseDetail() {
         setModal({ isOpen: true, type, title, message, onConfirm });
     };
 
-    // --- Fetch Data ---
     const fetchInventory = () => {
         setLoading(true);
         api.get(`/warehouses/${id}/inventory`)
@@ -80,7 +71,6 @@ export default function WarehouseDetail() {
                 setWarehouse(res.data.warehouse);
                 const sortedProducts = (res.data.products || []).sort((a, b) => b.id - a.id);
                 setProducts(sortedProducts);
-                // Reset Filters on load
                 setFilteredProducts(sortedProducts);
                 setSelectedIds([]);
             })
@@ -90,16 +80,11 @@ export default function WarehouseDetail() {
 
     useEffect(() => { fetchInventory(); }, [id]);
 
-    // --- Filter Logic (Category + Search) ---
     useEffect(() => {
         let result = [...products];
-
-        // 1. Filter by Category
         if (selectedCategory !== 'ทั้งหมด') {
             result = result.filter(p => p.category === selectedCategory);
         }
-
-        // 2. Filter by Search
         if (search) {
             const lowerSearch = search.toLowerCase();
             result = result.filter(p =>
@@ -107,18 +92,26 @@ export default function WarehouseDetail() {
                 p.sku.toLowerCase().includes(lowerSearch)
             );
         }
-
         setFilteredProducts(result);
     }, [selectedCategory, search, products]);
 
-    // Count products per category
+    useEffect(() => {
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+                console.log('🧹 SSE cleaned up');
+            }
+        };
+    }, []);
+
+
     const currentCounts = products.reduce((acc, item) => {
         const cat = item.category || 'อื่นๆ';
         acc[cat] = (acc[cat] || 0) + 1;
         return acc;
     }, {});
 
-    // --- Upload Logic ---
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -135,7 +128,11 @@ export default function WarehouseDetail() {
         const formData = new FormData();
         formData.append('file', file);
 
-        let eventSource;
+        const token = Cookies.get('token');
+        if (!token) {
+            showModal('error', 'ไม่ได้เข้าสู่ระบบ', 'กรุณาเข้าสู่ระบบใหม่');
+            return;
+        }
 
         try {
             setIsUploading(true);
@@ -143,55 +140,101 @@ export default function WarehouseDetail() {
             setUploadProgress(0);
             setImportProgress(0);
 
-            // ✅ เปิด SSE ฟัง progress จาก server
-            eventSource = new EventSource(
-                `${BASE_API_URL}/api/warehouses/${id}/import-progress`,
-                { withCredentials: true }
-            );
+            // 🔌 SSE URL (ใช้ API_BASE เดียวกัน)
+            const sseUrl =
+                `${API_BASE}/api/warehouses/${id}/import-progress?token=${token}`;
 
-            eventSource.onmessage = (event) => {
+            console.log('🔌 SSE URL:', sseUrl);
+
+            // ❗ ปิดของเก่าก่อน
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+
+            const es = new EventSource(sseUrl);
+            eventSourceRef.current = es;
+
+            es.onopen = () => {
+                console.log('✅ SSE Connected');
+            };
+
+            es.onmessage = (event) => {
+                if (!event.data) return;
+
                 const data = JSON.parse(event.data);
-                setImportProgress(data.progress);
-                setImportStatus('importing');
+                console.log('📊 SSE DATA:', data);
 
-                if (data.progress >= 100) {
+                if (typeof data.progress === 'number') {
+                    setImportProgress(data.progress);
+                }
+
+                if (data.status) {
+                    setImportStatus(data.status);
+                }
+
+                if (data.status === 'done') {
+                    setImportProgress(100);
                     setImportStatus('done');
-                    eventSource.close();
+
+                    es.close();
+                    eventSourceRef.current = null;
+
+                    fetchInventory();
+                    setHistoryRefreshKey(prev => prev + 1);
+                }
+
+                if (data.status === 'error') {
+                    setImportStatus('error');
+                    es.close();
+                    eventSourceRef.current = null;
                 }
             };
-            // ✅ upload file + upload progress
-            const response = await api.post(
+
+            es.onerror = () => {
+                console.warn('⚠ SSE disconnected');
+                es.close();
+                eventSourceRef.current = null;
+            };
+
+            // 📤 Upload file
+            const res = await api.post(
                 `/warehouses/${id}/import-file`,
                 formData,
                 {
-                    headers: { 'Content-Type': 'multipart/form-data' },
                     onUploadProgress: (e) => {
+                        if (!e.total) return;
                         const percent = Math.round((e.loaded * 100) / e.total);
                         setUploadProgress(percent);
+                        if (percent === 100) setImportStatus('importing');
                     }
                 }
             );
 
             showModal(
                 'success',
-                'นำเข้าสำเร็จ!',
-                `นำเข้าข้อมูลเรียบร้อย จำนวน: ${response.data.count || 'หลาย'} รายการ`
+                'นำเข้าสำเร็จ',
+                `นำเข้าข้อมูล ${res.data.count || 0} รายการ`
             );
 
-            fetchInventory();
-            setHistoryRefreshKey(prev => prev + 1);
-
-        } catch (error) {
-            console.error("Upload Error:", error);
+        } catch (err) {
+            console.error('❌ IMPORT ERROR:', err);
             setImportStatus('error');
-            showModal('error', 'เกิดข้อผิดพลาด', error.response?.data?.error || error.message);
-            if (eventSource) eventSource.close();
+            showModal(
+                'error',
+                'เกิดข้อผิดพลาด',
+                err.response?.data?.error || err.message
+            );
         } finally {
-            setIsUploading(false);
+            setTimeout(() => {
+                setIsUploading(false);
+                setUploadProgress(0);
+                setImportProgress(0);
+                setImportStatus('idle');
+            }, 1500);
         }
     };
 
-    // --- Delete & Selection Logic ---
+
     const handleDeleteOne = (productId) => {
         showModal('confirm', 'ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบสินค้านี้?', async () => {
             try {
@@ -264,7 +307,6 @@ export default function WarehouseDetail() {
             <Sidebar />
             <div className="flex-1 p-6 lg:p-10 relative">
 
-                {/* Back Button */}
                 <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-6 transition-colors group font-medium">
                     <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> ย้อนกลับ
                 </button>
@@ -294,7 +336,6 @@ export default function WarehouseDetail() {
                             <p className="text-3xl font-extrabold text-indigo-600">{products.length.toLocaleString()}</p>
                         </div>
 
-                        {/* Action Buttons */}
                         <div className="flex gap-3 w-full md:w-auto">
                             <button
                                 onClick={() => setShowHistory(true)}
@@ -310,50 +351,60 @@ export default function WarehouseDetail() {
                                 className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-white font-medium shadow-md shadow-indigo-200 transition-all active:scale-95 ${isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                             >
                                 {isUploading ? <Loader2 className="animate-spin" size={20} /> : <UploadCloud size={20} />}
-                                {isUploading && (
-                                    <div className="w-full mt-4 space-y-3 animate-in fade-in duration-300">
-                                        {/* Upload Progress */}
-                                        <div>
-                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
-                                                <span>📤 อัปโหลดไฟล์</span>
-                                                <span>{uploadProgress}%</span>
-                                            </div>
-                                            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-indigo-500 transition-all duration-300"
-                                                    style={{ width: `${uploadProgress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Import Progress */}
-                                        <div>
-                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
-                                                <span>📊 ประมวลผลข้อมูล</span>
-                                                <span>{importProgress}%</span>
-                                            </div>
-                                            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-emerald-500 transition-all duration-300"
-                                                    style={{ width: `${importProgress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Status */}
-                                        <div className="text-xs text-slate-500 text-right">
-                                            {importStatus === 'uploading' && 'กำลังอัปโหลดไฟล์...'}
-                                            {importStatus === 'importing' && 'กำลังนำเข้าข้อมูล...'}
-                                            {importStatus === 'done' && 'นำเข้าเสร็จสมบูรณ์ ✔'}
-                                        </div>
-                                    </div>
-                                )}
+                                <span className="hidden sm:inline">{isUploading ? 'กำลังนำเข้า...' : 'นำเข้าไฟล์'}</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* --- Category Filter (คงไว้ตามที่ขอ) --- */}
+                {/* ✅ Progress Card - แยกออกมาแสดงชัดเจน */}
+                {isUploading && (
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 animate-in fade-in duration-300">
+                        <div className="space-y-4">
+                            {/* Upload Progress */}
+                            <div>
+                                <div className="flex justify-between text-sm font-medium text-slate-700 mb-2">
+                                    <span className="flex items-center gap-2">
+                                        📤 อัปโหลดไฟล์
+                                    </span>
+                                    <span className="text-indigo-600">{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-indigo-500 transition-all duration-300 rounded-full"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Import Progress */}
+                            <div>
+                                <div className="flex justify-between text-sm font-medium text-slate-700 mb-2">
+                                    <span className="flex items-center gap-2">
+                                        📊 ประมวลผลข้อมูล
+                                    </span>
+                                    <span className="text-emerald-600">{importProgress}%</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+                                        style={{ width: `${importProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Status Text */}
+                            <div className="text-sm text-slate-600 text-center pt-2">
+                                {importStatus === 'uploading' && '⏳ กำลังอัปโหลดไฟล์...'}
+                                {importStatus === 'importing' && '⚙️ กำลังประมวลผลและนำเข้าข้อมูล...'}
+                                {importStatus === 'done' && '✅ นำเข้าเสร็จสมบูรณ์!'}
+                                {importStatus === 'error' && '❌ เกิดข้อผิดพลาด'}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Category Filter */}
                 <div className="mb-8">
                     <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                         <Filter size={16} className="text-indigo-500" /> หมวดหมู่สินค้า
@@ -389,7 +440,7 @@ export default function WarehouseDetail() {
                     </div>
                 </div>
 
-                {/* --- Search & Table --- */}
+                {/* Search & Table */}
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-bold text-slate-800">รายการสินค้า</h2>
@@ -523,9 +574,7 @@ export default function WarehouseDetail() {
 
             </div>
 
-            {/* --- Modals --- */}
-
-            {/* 1. History Modal */}
+            {/* History Modal */}
             {showHistory && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
@@ -544,7 +593,7 @@ export default function WarehouseDetail() {
                 </div>
             )}
 
-            {/* 2. Alert Modal */}
+            {/* Alert Modal */}
             {modal.isOpen && (
                 <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/20 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
@@ -574,7 +623,7 @@ export default function WarehouseDetail() {
                 </div>
             )}
 
-            {/* 3. Barcode Viewer */}
+            {/* Barcode Viewer */}
             {selectedSku && (
                 <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedSku(null)}>
                     <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200 max-w-sm w-full" onClick={e => e.stopPropagation()}>
