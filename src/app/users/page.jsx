@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
-import api from '@/lib/axios'; // ✅ ใช้ axios instance
+import api from '@/lib/axios';
 import Swal from 'sweetalert2';
-import { Trash2, Plus, X, User, Shield, ShieldCheck } from 'lucide-react';
-import Cookies from 'js-cookie';
+import { Trash2, Plus, X, User, Shield, ShieldCheck, Search, Users } from 'lucide-react';
 
 export default function UsersPage() {
     const [users, setUsers] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         username: '',
@@ -16,22 +16,27 @@ export default function UsersPage() {
         role: 'STAFF'
     });
 
-    // ดึงข้อมูลผู้ใช้
     const fetchUsers = () => {
         api.get('/users').then(res => {
             setUsers(res.data);
         }).catch(err => {
-            console.error(err);
-            // ถ้าไม่ใช่ Admin อาจจะโดนดีดออก
             if (err.response?.status === 403) {
-                Swal.fire("ไม่มีสิทธิ์", "หน้านี้สำหรับผู้ดูแลระบบเท่านั้น", "error");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'สิทธิ์ไม่เพียงพอ',
+                    text: 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น',
+                    confirmButtonColor: '#4f46e5'
+                });
             }
         });
     };
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
+    useEffect(() => { fetchUsers(); }, []);
+
+    const filteredUsers = users.filter(u =>
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.username.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const handleOpenModal = () => {
         setFormData({ username: '', password: '', name: '', role: 'STAFF' });
@@ -40,149 +45,199 @@ export default function UsersPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.username || !formData.password || !formData.name) {
-            Swal.fire("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบ", "warning");
-            return;
-        }
-
         Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
-
         try {
             await api.post('/users', formData);
-            Swal.fire("สำเร็จ", "เพิ่มผู้ใช้งานเรียบร้อย", "success");
+            Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'เพิ่มผู้ใช้งานเรียบร้อย', timer: 1500, showConfirmButton: false });
             setIsModalOpen(false);
             fetchUsers();
         } catch (err) {
-            const msg = err.response?.data?.error || "เกิดข้อผิดพลาด";
-            Swal.fire("ล้มเหลว", msg, "error");
+            Swal.fire("ล้มเหลว", err.response?.data?.error || "เกิดข้อผิดพลาด", "error");
         }
     };
 
     const handleDelete = (id) => {
         Swal.fire({
             title: "ยืนยันการลบ?",
-            text: "ผู้ใช้นี้จะไม่สามารถเข้าสู่ระบบได้อีก",
+            text: "ข้อมูลนี้ไม่สามารถกู้คืนได้",
             icon: "warning",
             showCancelButton: true,
-            confirmButtonColor: "#d33",
-            confirmButtonText: "ลบเลย",
-            cancelButtonText: "ยกเลิก"
+            confirmButtonColor: "#ef4444",
+            confirmButtonText: "ลบผู้ใช้",
+            cancelButtonText: "ยกเลิก",
+            borderRadius: '1rem'
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
                     await api.delete(`/users/${id}`);
-                    Swal.fire("ลบสำเร็จ", "", "success");
+                    Swal.fire({ icon: "success", title: "ลบสำเร็จ", timer: 1000, showConfirmButton: false });
                     fetchUsers();
                 } catch (err) {
-                    Swal.fire("ลบไม่ได้", err.response?.data?.error || "เกิดข้อผิดพลาด", "error");
+                    Swal.fire("ลบไม่ได้", "เกิดข้อผิดพลาดในการลบข้อมูล", "error");
                 }
             }
         });
     };
 
     return (
-        <div className="flex bg-gray-50 min-h-screen">
+        <div className="flex bg-[#F8FAFC] min-h-screen font-sans">
             <Sidebar />
-            <div className="flex-1 p-8">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800">จัดการผู้ใช้งาน</h1>
-                    <button onClick={handleOpenModal} className="bg-blue-600 text-white px-5 py-2 rounded-xl flex gap-2 items-center hover:bg-blue-700 shadow-sm transition">
-                        <Plus size={20} /> เพิ่มผู้ใช้
+
+            <main className="flex-1 p-6 lg:p-10 space-y-8 overflow-y-auto">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                                <Users size={24} />
+                            </div>
+                            <h1 className="text-3xl font-black text-slate-800 tracking-tight">จัดการผู้ใช้งาน</h1>
+                        </div>
+                        <p className="text-slate-500 font-medium">จัดการสิทธิ์และบัญชีผู้ใช้งานในระบบ</p>
+                    </div>
+
+                    <button
+                        onClick={handleOpenModal}
+                        className="bg-indigo-600 text-white px-6 py-3 rounded-2xl flex gap-2 items-center justify-center hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-200 transition-all active:scale-95"
+                    >
+                        <Plus size={20} strokeWidth={3} />
+                        <span className="font-bold">เพิ่มผู้ใช้งานใหม่</span>
                     </button>
                 </div>
 
-                <div className="bg-white rounded-xl shadow overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-100 border-b">
-                            <tr>
-                                <th className="p-4 text-left text-gray-600 font-semibold">ชื่อพนักงาน</th>
-                                <th className="p-4 text-left text-gray-600 font-semibold">Username</th>
-                                <th className="p-4 text-left text-gray-600 font-semibold">ตำแหน่ง</th>
-                                <th className="p-4 text-center text-gray-600 font-semibold">จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {users.map((u) => (
-                                <tr key={u.id} className="hover:bg-gray-50">
-                                    <td className="p-4 flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                                            {u.name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <span className="font-medium text-gray-800">{u.name}</span>
-                                    </td>
-                                    <td className="p-4 text-gray-600">{u.username}</td>
-                                    <td className="p-4">
-                                        {u.role === 'ADMIN' ? (
-                                            <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold flex w-fit items-center gap-1">
-                                                <ShieldCheck size={12} /> ADMIN
-                                            </span>
-                                        ) : (
-                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold flex w-fit items-center gap-1">
-                                                <User size={12} /> STAFF
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition" title="ลบผู้ใช้">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {users.length === 0 && (
-                                <tr>
-                                    <td colSpan="4" className="p-8 text-center text-gray-400">ไม่พบข้อมูลผู้ใช้งาน</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                {/* Search & Statistics Table Card */}
+                <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
+                        <div className="relative w-full md:w-96">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                                type="text"
+                                placeholder="ค้นหาชื่อ หรือ Username..."
+                                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-600"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="text-sm text-slate-400 font-medium">
+                            พบทั้งหมด <span className="text-indigo-600 font-bold">{filteredUsers.length}</span> รายการ
+                        </div>
+                    </div>
 
-            {/* Modal เพิ่มผู้ใช้ */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50/50">
+                                <tr>
+                                    <th className="px-6 py-4 text-[13px] uppercase tracking-wider text-slate-500 font-bold">ชื่อพนักงาน</th>
+                                    <th className="px-6 py-4 text-[13px] uppercase tracking-wider text-slate-500 font-bold">Username</th>
+                                    <th className="px-6 py-4 text-[13px] uppercase tracking-wider text-slate-500 font-bold">ตำแหน่ง</th>
+                                    <th className="px-6 py-4 text-center text-[13px] uppercase tracking-wider text-slate-500 font-bold">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredUsers.map((u) => (
+                                    <tr key={u.id} className="hover:bg-indigo-50/30 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-11 h-11 bg-linear-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-black shadow-md shadow-indigo-100 group-hover:scale-110 transition-transform">
+                                                    {u.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-slate-700">{u.name}</div>
+                                                    <div className="text-xs text-slate-400">ID: #{u.id.toString().slice(-4)}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-sm text-slate-600 bg-slate-50/50 group-hover:bg-transparent">
+                                            @{u.username}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {u.role === 'ADMIN' ? (
+                                                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-xl text-[11px] font-black flex w-fit items-center gap-2 border border-amber-200">
+                                                    <ShieldCheck size={14} /> ADMIN
+                                                </span>
+                                            ) : (
+                                                <span className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-xl text-[11px] font-black flex w-fit items-center gap-2 border border-slate-200">
+                                                    <User size={14} /> STAFF
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={() => handleDelete(u.id)}
+                                                className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-2.5 rounded-xl transition-all active:scale-90"
+                                            >
+                                                <Trash2 size={20} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {filteredUsers.length === 0 && (
+                            <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+                                <Search size={48} strokeWidth={1} className="mb-4 opacity-20" />
+                                <p className="font-medium">ไม่พบข้อมูลผู้ใช้งานที่กำลังค้นหา</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+
+            {/* Modal - เพิ่มผู้ใช้งาน (Modern Overlay) */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="flex justify-between items-center p-5 border-b bg-gray-50">
-                            <h2 className="text-lg font-bold text-gray-800">เพิ่มผู้ใช้งานใหม่</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                <X size={24} />
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-100 backdrop-blur-md transition-all">
+                    <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl shadow-slate-900/20 overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20">
+                        <div className="flex justify-between items-center px-8 py-6 border-b border-slate-50">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800">เพิ่มสมาชิกใหม่</h2>
+                                <p className="text-xs text-slate-400 mt-1 font-medium">สร้างบัญชีผู้ใช้งานสำหรับพนักงาน</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors">
+                                <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล (ที่แสดง)</label>
-                                <input type="text" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+
+                        <form onSubmit={handleSubmit} className="p-8 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">ชื่อ-นามสกุล</label>
+                                <input type="text" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
                                     value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="เช่น สมชาย ใจดี" required />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Username (สำหรับล็อกอิน)</label>
-                                <input type="text" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
-                                    placeholder="เช่น somchai" required />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                <input type="password" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    placeholder="กำหนดรหัสผ่าน" required />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">สิทธิ์การใช้งาน</label>
-                                <select className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}>
-                                    <option value="STAFF">พนักงานทั่วไป (STAFF)</option>
-                                    <option value="ADMIN">ผู้ดูแลระบบ (ADMIN)</option>
-                                </select>
+                                    placeholder="กรอกชื่อจริง" required />
                             </div>
 
-                            <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium">
-                                    ยกเลิก
-                                </button>
-                                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-lg shadow-blue-200">
-                                    บันทึก
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">Username</label>
+                                    <input type="text" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                                        value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                        placeholder="เช่น somchai" required />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">Password</label>
+                                    <input type="password" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                                        value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                        placeholder="••••••••" required />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">ระดับสิทธิ์</label>
+                                <div className="relative">
+                                    <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none appearance-none transition-all font-bold text-slate-700"
+                                        value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}>
+                                        <option value="STAFF">พนักงานทั่วไป (STAFF)</option>
+                                        <option value="ADMIN">ผู้ดูแลระบบ (ADMIN)</option>
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                        <Shield size={18} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 flex gap-3">
+                                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-[1.25rem] hover:bg-indigo-700 font-bold shadow-xl shadow-indigo-200 transition-all active:scale-95">
+                                    ยืนยันการเพิ่มผู้ใช้
                                 </button>
                             </div>
                         </form>
