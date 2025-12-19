@@ -128,24 +128,35 @@ export default function WarehousesPage() {
     };
 
     return (
-        <div className="flex bg-gray-50 min-h-screen">
+        <div className="flex bg-gray-50 min-h-screen font-sans overflow-x-hidden">
             <Sidebar />
-            <div className="flex-1 p-8">
-                <div className="flex justify-between items-center mb-8">
+
+            {/* flex-1 และ min-w-0 ช่วยป้องกัน content ดันทะลุจอในบาง browser */}
+            <div className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 lg:p-12 mt-16 md:mt-0 transition-all duration-300">
+
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-10 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800">คลังสินค้า</h1>
-                        <p className="text-gray-500 mt-1">จัดการและตรวจสอบสต็อกแยกตามคลัง</p>
+                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 tracking-tight">
+                            คลังสินค้า
+                        </h1>
+                        <p className="text-gray-500 mt-2 text-sm md:text-lg">
+                            จัดการและตรวจสอบสต็อกแยกตามคลัง
+                        </p>
                     </div>
+
+                    {/* ปุ่มเพิ่ม: มือถือเต็มจอ (w-full), จอคอมขนาดพอดีคำ (md:w-auto) */}
                     <button
-                        onClick={() => handleSaveWarehouse()} // 👉 เพิ่มใหม่ (ไม่ต้องส่ง params)
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        onClick={() => handleSaveWarehouse()}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 md:px-6 md:py-3 md:text-lg rounded-xl hover:bg-blue-700 transition-colors shadow-sm active:scale-95"
                     >
-                        <Plus size={20} /> เพิ่มคลังสินค้า
+                        <Plus size={20} className="md:w-6 md:h-6" />
+                        <span>เพิ่มคลังสินค้า</span>
                     </button>
                 </div>
 
-                {/* Grid แสดงคลังสินค้า */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Grid Area: เพิ่ม xl:grid-cols-4 สำหรับจอใหญ่พิเศษ */}
+                <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
                     {warehouses.map((wh) => {
                         const imageUrl = getImageUrl(wh.image_url);
 
@@ -153,48 +164,54 @@ export default function WarehousesPage() {
                             <div
                                 key={wh.id}
                                 onClick={() => router.push(`/warehouses/${wh.id}`)}
-                                className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group relative overflow-hidden"
+                                className="bg-white p-5 md:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all group relative overflow-hidden flex flex-col h-full"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    {/* ✅ แสดงรูปภาพ หรือ ไอคอน */}
-                                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center border border-gray-100">
+                                <div className="flex justify-between items-start mb-4 md:mb-6">
+                                    {/* กรอบรูป */}
+                                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center border border-gray-100 shadow-inner shrink-0">
                                         {imageUrl ? (
                                             <img
                                                 src={imageUrl}
                                                 alt={wh.name}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }} // ถ้าโหลดรูปไม่ได้ให้ซ่อนแล้วโชว์ไอคอน
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }}
                                             />
                                         ) : null}
-                                        {/* ไอคอนสำรอง (แสดงเมื่อไม่มีรูป หรือโหลดรูปไม่ได้) */}
+
                                         <div className={`p-3 text-blue-600 ${imageUrl ? 'hidden' : 'block'}`}>
-                                            <Warehouse size={32} />
+                                            <Warehouse size={32} className="md:w-10 md:h-10" />
                                         </div>
                                     </div>
 
-                                    {/* ปุ่มจัดการ */}
-                                    <div className="flex gap-2">
+                                    {/* ปุ่ม Action (Edit/Delete) */}
+                                    <div className="flex gap-1 md:gap-2">
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleSaveWarehouse(wh); }} // 👉 แก้ไข (ส่ง wh ไป)
-                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); handleSaveWarehouse(wh); }}
+                                            className="p-2 md:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                                             title="แก้ไข"
                                         >
-                                            <Edit size={18} />
+                                            <Edit size={18} className="md:w-6 md:h-6" />
                                         </button>
                                         <button
                                             onClick={(e) => handleDeleteWarehouse(e, wh.id)}
-                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                            className="p-2 md:p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                                             title="ลบ"
                                         >
-                                            <Trash2 size={18} />
+                                            <Trash2 size={18} className="md:w-6 md:h-6" />
                                         </button>
                                     </div>
                                 </div>
 
-                                <h3 className="text-xl font-bold text-gray-800 mb-2 pr-8">{wh.name}</h3>
+                                {/* Content */}
+                                <div className="flex-1 flex flex-col">
+                                    <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800 mb-2 md:mb-3 pr-2 leading-tight line-clamp-2">
+                                        {wh.name}
+                                    </h3>
 
-                                <div className="flex items-center text-blue-600 text-sm font-medium mt-auto">
-                                    ดูรายการสินค้า <ChevronRight size={16} />
+                                    <div className="mt-auto pt-2 flex items-center text-blue-600 text-sm md:text-base lg:text-lg font-bold group-hover:translate-x-2 transition-transform duration-300">
+                                        ดูรายการสินค้า
+                                        <ChevronRight size={16} className="ml-1 md:w-5 md:h-5" />
+                                    </div>
                                 </div>
                             </div>
                         );
