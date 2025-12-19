@@ -151,13 +151,10 @@ export default function WarehouseDetail() {
             setUploadProgress(0);
             setImportProgress(0);
 
-            // 🔌 SSE URL (ใช้ API_BASE เดียวกัน)
-            const sseUrl =
-                `${API_BASE}/api/warehouses/${id}/import-progress?token=${token}`;
+            // 🔌 SSE URL
+            const sseUrl = `${API_BASE}/api/warehouses/${id}/import-progress?token=${token}`;
 
-            console.log('🔌 SSE URL:', sseUrl);
-
-            // ❗ ปิดของเก่าก่อน
+            // ปิดของเก่าถ้ามี
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
             }
@@ -165,49 +162,31 @@ export default function WarehouseDetail() {
             const es = new EventSource(sseUrl);
             eventSourceRef.current = es;
 
-            es.onopen = () => {
-                console.log('✅ SSE Connected');
-            };
+            es.onopen = () => console.log('✅ SSE Connected');
 
             es.onmessage = (event) => {
                 if (!event.data) return;
-
                 const data = JSON.parse(event.data);
-                console.log('📊 SSE DATA:', data);
 
                 if (typeof data.progress === 'number') {
                     setImportProgress(data.progress);
                 }
-
                 if (data.status) {
                     setImportStatus(data.status);
                 }
 
+                // ถ้าเสร็จแล้วผ่าน SSE
                 if (data.status === 'done') {
-                    setImportProgress(100);
-                    setImportStatus('done');
-
                     es.close();
-                    eventSourceRef.current = null;
-
-                    fetchInventory();
-                    setHistoryRefreshKey(prev => prev + 1);
-                }
-
-                if (data.status === 'error') {
-                    setImportStatus('error');
-                    es.close();
-                    eventSourceRef.current = null;
                 }
             };
 
             es.onerror = () => {
-                console.warn('⚠ SSE disconnected');
                 es.close();
                 eventSourceRef.current = null;
             };
 
-            // 📤 Upload file
+            // 📤 Upload file Request
             const res = await api.post(
                 `/warehouses/${id}/import-file`,
                 formData,
@@ -221,15 +200,36 @@ export default function WarehouseDetail() {
                 }
             );
 
+            // ✅ จุดที่ 1: ปิด SSE ทันทีที่ Request จบ (กันค้าง)
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+            }
+
+            setImportProgress(100);
+            setImportStatus('done');
+
+            // ✅ จุดที่ 2: สั่งรีเฟรชข้อมูลทันทีที่ API ตอบกลับ
+            await fetchInventory();
+            setHistoryRefreshKey(prev => prev + 1);
+
+            // ✅ จุดที่ 3: ใช้ res.data.message แทน count (แก้ปัญหาขึ้น 0)
             showModal(
                 'success',
                 'นำเข้าสำเร็จ',
-                `นำเข้าข้อมูล ${res.data.count || 0} รายการ`
+                res.data.message || 'นำเข้าข้อมูลเรียบร้อยแล้ว'
             );
 
         } catch (err) {
             console.error('❌ IMPORT ERROR:', err);
             setImportStatus('error');
+
+            // ปิด SSE กรณี Error
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+            }
+
             showModal(
                 'error',
                 'เกิดข้อผิดพลาด',
