@@ -23,8 +23,7 @@ const MASTER_CATEGORIES = [
 ];
 
 const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL ||
-    'https://stock-api-backend-iox1.onrender.com';
+    process.env.NEXT_PUBLIC_API_URL
 
 export default function WarehouseDetail() {
     const { id } = useParams();
