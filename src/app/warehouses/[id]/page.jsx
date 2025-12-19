@@ -8,7 +8,7 @@ import {
     ArrowLeft, Box, Filter, Search, ZoomIn, X, Download,
     Loader2, UploadCloud, Trash2, CheckSquare, Square,
     AlertCircle, CheckCircle, XCircle, AlertTriangle,
-    History, Package
+    History, Package, ScanBarcode, ChevronLeft, ChevronRight // ✅ เพิ่มไอคอนปุ่มเปลี่ยนหน้า
 } from 'lucide-react';
 import Barcode from 'react-barcode';
 import Cookies from 'js-cookie';
@@ -33,6 +33,11 @@ export default function WarehouseDetail() {
     const [warehouse, setWarehouse] = useState(null);
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
+
+    // ✅ 1. เพิ่ม State สำหรับแบ่งหน้า
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20); // แสดงหน้าละ 20 รายการ
+
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -93,6 +98,7 @@ export default function WarehouseDetail() {
             );
         }
         setFilteredProducts(result);
+        setCurrentPage(1); // ✅ รีเซ็ตไปหน้า 1 เมื่อมีการค้นหาหรือเปลี่ยนหมวดหมู่
     }, [selectedCategory, search, products]);
 
     useEffect(() => {
@@ -104,6 +110,12 @@ export default function WarehouseDetail() {
             }
         };
     }, []);
+
+    // ✅ 2. คำนวณข้อมูลที่จะแสดงในหน้าปัจจุบัน
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
 
     const currentCounts = products.reduce((acc, item) => {
@@ -250,9 +262,9 @@ export default function WarehouseDetail() {
         });
     };
 
-   const handleBulkDelete = () => {
+    const handleBulkDelete = () => {
         if (selectedIds.length === 0) return;
-        
+
         showModal('confirm', 'ยืนยันการลบหมู่', `ต้องการลบ ${selectedIds.length} รายการ?`, async () => {
             try {
                 setIsDeleting(true);
@@ -263,7 +275,7 @@ export default function WarehouseDetail() {
                     const batch = selectedIds.slice(i, i + BATCH_SIZE);
                     await Promise.all(batch.map(pid => api.delete(`/products/${pid}`)));
                 }
-                
+
                 // อัปเดต State ทีเดียวตอนจบ
                 setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
                 setSelectedIds([]);
@@ -476,6 +488,7 @@ export default function WarehouseDetail() {
                     </div>
                 </div>
 
+                {/* ✅ 3. Table Section (ปรับแก้ให้ใช้ currentItems แทน filteredProducts) */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-20">
                     <div className="overflow-x-auto">
                         <table className="w-full whitespace-nowrap">
@@ -496,8 +509,8 @@ export default function WarehouseDetail() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredProducts.length > 0 ? (
-                                    filteredProducts.map((p) => {
+                                {currentItems.length > 0 ? (
+                                    currentItems.map((p) => {
                                         const isSelected = selectedIds.includes(p.id);
                                         return (
                                             <tr key={p.id} className={`group transition-colors duration-150 ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-slate-50'}`}>
@@ -511,18 +524,22 @@ export default function WarehouseDetail() {
                                                         {p.image_url ? <img src={getImageUrl(p.image_url)} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Package size={20} /></div>}
                                                     </div>
                                                 </td>
-                                                <td className="py-4 px-6 align-top text-center">
+                                                <td className="py-4 px-6 align-middle text-center">
                                                     <div
-                                                        className="cursor-pointer hover:scale-105 transition-transform inline-block p-1 bg-white border border-transparent hover:border-slate-200 rounded hover:shadow-md"
+                                                        className="cursor-pointer hover:bg-slate-50 transition-colors border border-dashed border-slate-200 rounded p-1 w-28 h-12 flex items-center justify-center mx-auto group/bc"
                                                         onClick={() => setSelectedSku(p.sku)}
                                                         title="คลิกเพื่อขยาย"
                                                     >
-                                                        {/* ถ้ามี URL รูปจาก Server ให้โชว์รูป ถ้าไม่มีให้ Generate ใหม่ */}
                                                         {p.barcode_url ? (
-                                                            <img src={getImageUrl(p.barcode_url)} className="h-10 max-w-[120px] object-contain" alt="barcode" />
+                                                            <img
+                                                                src={getImageUrl(p.barcode_url)}
+                                                                className="h-full w-full object-contain"
+                                                                alt="barcode"
+                                                            />
                                                         ) : (
-                                                            <div className="opacity-80 pointer-events-none">
-                                                                <Barcode value={p.sku} height={30} width={1} displayValue={false} margin={0} />
+                                                            <div className="flex items-center gap-1 text-slate-400 group-hover/bc:text-indigo-500">
+                                                                <ScanBarcode size={18} />
+                                                                <span className="text-[10px]">ดูบาร์โค้ด</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -572,6 +589,52 @@ export default function WarehouseDetail() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ✅ 4. Pagination Controls (ปุ่มเปลี่ยนหน้า) */}
+                    {filteredProducts.length > 0 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+                            <div className="text-xs text-slate-500">
+                                แสดง {indexOfFirstItem + 1} ถึง {Math.min(indexOfLastItem, filteredProducts.length)} จาก {filteredProducts.length} รายการ
+                            </div>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    let pageNum = i + 1;
+                                    if (totalPages > 5 && currentPage > 3) {
+                                        pageNum = currentPage - 3 + i;
+                                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                                    }
+                                    if (pageNum < 1) pageNum = i + 1;
+
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${currentPage === pageNum
+                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                : 'text-slate-600 hover:bg-white'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Bulk Action Bar */}

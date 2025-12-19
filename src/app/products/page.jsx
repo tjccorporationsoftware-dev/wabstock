@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, ZoomIn, FileSpreadsheet, Edit, MapPin, Box, Package } from 'lucide-react';
+import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, Box, Edit, ChevronLeft, ChevronRight, ScanBarcode } from 'lucide-react';
 import Barcode from 'react-barcode';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -21,6 +21,11 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 export default function ProductsPage() {
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
+
+    // ✅ เพิ่ม State สำหรับ Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20); // แสดงหน้าละ 20 รายการ
+
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
     const [role, setRole] = useState('');
@@ -44,10 +49,7 @@ export default function ProductsPage() {
 
     const getImageUrl = (url) => {
         if (!url) return null;
-        if (url.startsWith('http')) return url;
-        if (url.startsWith('http') || url.startsWith('data:')) {
-            return url;
-        }
+        if (url.startsWith('http') || url.startsWith('data:')) return url;
         return `${BASE_API_URL}${url}`;
     };
 
@@ -82,7 +84,14 @@ export default function ProductsPage() {
             result = result.filter(p => p.category === selectedCategory);
         }
         setFilteredProducts(result);
+        setCurrentPage(1); // รีเซ็ตไปหน้า 1 เวลาค้นหา
     }, [search, selectedCategory, products]);
+
+    // ✅ คำนวณข้อมูลที่จะแสดงในหน้าปัจจุบัน
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
     const handleExportExcel = async () => {
         Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -325,7 +334,7 @@ export default function ProductsPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div>
                         <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">จัดการสินค้า</h1>
-                        <p className="text-slate-500 mt-1 text-sm">ตรวจสอบและจัดการรายการสินค้าในคลังของคุณ</p>
+                        <p className="text-slate-500 mt-1 text-sm">ตรวจสอบและจัดการรายการสินค้าในคลังของคุณ ({filteredProducts.length} รายการ)</p>
                     </div>
 
                     <div className="flex gap-3 w-full md:w-auto">
@@ -333,7 +342,7 @@ export default function ProductsPage() {
                             onClick={handleExportExcel}
                             className="flex-1 md:flex-none justify-center bg-white text-emerald-600 border border-emerald-200 px-5 py-2.5 rounded-xl flex gap-2 items-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm font-medium text-sm"
                         >
-                            <FileSpreadsheet size={18} /> Export Excel
+                            <Download size={18} /> Export Excel
                         </button>
 
                         {role === "ADMIN" && (
@@ -390,18 +399,21 @@ export default function ProductsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredProducts.map((p) => (
+                                {currentItems.map((p) => (
                                     <tr key={p.id} className="group hover:bg-indigo-50/30 transition-colors">
                                         <td className="py-3 px-3 align-top">
                                             <div className="flex items-start gap-2">
-                                                <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-400 mt-1">
-                                                    <Box size={16} />
+                                                <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-400 mt-1 overflow-hidden">
+                                                    {p.image_url ? (
+                                                        <img src={getImageUrl(p.image_url)} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <Box size={16} />
+                                                    )}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="font-medium text-gray-900 text-sm wrap-break-word whitespace-normal leading-tight">
                                                         {p.name}
                                                     </div>
-                                                    {p.description && <div className="text-xs text-gray-500 line-clamp-1 mt-0.5">{p.description}</div>}
                                                 </div>
                                             </div>
                                         </td>
@@ -412,30 +424,21 @@ export default function ProductsPage() {
                                         </td>
                                         <td className="py-2 px-2 text-center align-middle">
                                             <div
-                                                // 1. กำหนดขนาดกล่องให้ชัดเจน (w-36 h-16) และใช้ flex จัดกึ่งกลาง
-                                                className="cursor-pointer hover:scale-105 transition-transform bg-white border border-transparent hover:border-slate-200 rounded hover:shadow-md
-                   w-36 h-16 flex items-center justify-center mx-auto overflow-hidden"
+                                                className="cursor-pointer hover:bg-slate-50 transition-colors border border-dashed border-slate-200 rounded p-1 w-28 h-12 flex items-center justify-center mx-auto group/bc"
                                                 onClick={() => setSelectedSku(p.sku)}
                                                 title="คลิกเพื่อขยาย"
                                             >
+                                                {/* ✅ แก้ไข: แสดงเฉพาะรูป (ถ้ามี) หรือไอคอน แทนการ Render Barcode Component หนักๆ */}
                                                 {p.barcode_url ? (
-                                                    // 2. ปรับรูปภาพ: ให้สูงเต็มกล่อง (h-full) แต่กว้างไม่เกินกล่อง (object-contain)
                                                     <img
                                                         src={getImageUrl(p.barcode_url)}
-                                                        className="h-full w-full object-contain p-1"
+                                                        className="h-full w-full object-contain"
                                                         alt="barcode"
                                                     />
                                                 ) : (
-                                                    // 3. ปรับ Barcode Component: เพิ่ม height ให้ใกล้เคียงกับรูปภาพ (ประมาณ 40-50)
-                                                    <div className="opacity-80 pointer-events-none flex items-center justify-center">
-                                                        <Barcode
-                                                            value={p.sku}
-                                                            height={35}       // ปรับความสูงให้พอดีกับกล่อง h-16 (64px)
-                                                            width={1.2}       // ปรับความกว้างแท่งบาร์โค้ดให้ดูสมส่วน
-                                                            displayValue={false}
-                                                            margin={0}
-                                                            background="transparent"
-                                                        />
+                                                    <div className="flex items-center gap-1 text-slate-400 group-hover/bc:text-indigo-500">
+                                                        <ScanBarcode size={18} />
+                                                        <span className="text-[10px]">ดูบาร์โค้ด</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -476,13 +479,65 @@ export default function ProductsPage() {
 
                                     </tr>
                                 ))}
+                                {currentItems.length === 0 && (
+                                    <tr>
+                                        <td colSpan="7" className="text-center py-10 text-slate-400">
+                                            ไม่พบข้อมูลสินค้า
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ✅ Pagination Controls */}
+                    {filteredProducts.length > 0 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
+                            <div className="text-xs text-slate-500">
+                                แสดง {indexOfFirstItem + 1} ถึง {Math.min(indexOfLastItem, filteredProducts.length)} จาก {filteredProducts.length} รายการ
+                            </div>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    // Logic ง่ายๆ เพื่อแสดงเลขหน้า (ปรับปรุงได้ถ้าหน้าเยอะมาก)
+                                    let pageNum = i + 1;
+                                    if (totalPages > 5 && currentPage > 3) {
+                                        pageNum = currentPage - 3 + i;
+                                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                                    }
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${currentPage === pageNum
+                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                : 'text-slate-600 hover:bg-white'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="p-1.5 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* MODAL เพิ่ม/แก้ไข สินค้า */}
+            {/* MODAL เพิ่ม/แก้ไข สินค้า (คงเดิม) */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
                     <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -606,7 +661,7 @@ export default function ProductsPage() {
                                     {!editingId && (
                                         <div className="p-5 bg-indigo-50/50 rounded-xl border border-indigo-100">
                                             <div className="flex items-center gap-2 mb-3">
-                                                <Package className="text-indigo-500" size={18} />
+                                                <Box className="text-indigo-500" size={18} />
                                                 <label className="text-sm font-bold text-indigo-900">ตั้งค่าสต็อกเริ่มต้น</label>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
@@ -670,6 +725,7 @@ export default function ProductsPage() {
                         </div>
 
                         <div ref={viewerRef} className="p-6 bg-white border-2 border-dashed border-slate-200 rounded-2xl w-full flex justify-center">
+                            {/* Render Barcode only here in Modal */}
                             <Barcode
                                 value={selectedSku}
                                 format="CODE128"
