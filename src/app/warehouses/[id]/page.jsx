@@ -250,18 +250,29 @@ export default function WarehouseDetail() {
         });
     };
 
-    const handleBulkDelete = () => {
+   const handleBulkDelete = () => {
         if (selectedIds.length === 0) return;
+        
         showModal('confirm', 'ยืนยันการลบหมู่', `ต้องการลบ ${selectedIds.length} รายการ?`, async () => {
             try {
                 setIsDeleting(true);
-                await Promise.all(selectedIds.map(pid => api.delete(`/products/${pid}`)));
+                const BATCH_SIZE = 500;
+                const total = selectedIds.length;
+
+                for (let i = 0; i < total; i += BATCH_SIZE) {
+                    const batch = selectedIds.slice(i, i + BATCH_SIZE);
+                    await Promise.all(batch.map(pid => api.delete(`/products/${pid}`)));
+                }
+                
+                // อัปเดต State ทีเดียวตอนจบ
                 setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
                 setSelectedIds([]);
                 showModal('success', 'เรียบร้อย', 'ลบข้อมูลเรียบร้อย');
+
             } catch (error) {
-                showModal('error', 'ผิดพลาด', 'เกิดข้อผิดพลาดในการลบหมู่');
-                fetchInventory();
+                console.error(error);
+                showModal('error', 'ผิดพลาด', 'เกิดข้อผิดพลาดในการลบหมู่ (บางรายการอาจถูกลบไปแล้ว)');
+                fetchInventory(); // โหลดข้อมูลใหม่เพื่อความชัวร์
             } finally {
                 setIsDeleting(false);
             }
@@ -500,12 +511,20 @@ export default function WarehouseDetail() {
                                                         {p.image_url ? <img src={getImageUrl(p.image_url)} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Package size={20} /></div>}
                                                     </div>
                                                 </td>
-                                                <td className="py-4 px-6 text-center">
+                                                <td className="py-4 px-6 align-top text-center">
                                                     <div
+                                                        className="cursor-pointer hover:scale-105 transition-transform inline-block p-1 bg-white border border-transparent hover:border-slate-200 rounded hover:shadow-md"
                                                         onClick={() => setSelectedSku(p.sku)}
-                                                        className="cursor-pointer hover:scale-105 transition-transform inline-block p-1 rounded hover:bg-white hover:shadow-sm"
+                                                        title="คลิกเพื่อขยาย"
                                                     >
-                                                        {p.barcode_url ? <img src={getImageUrl(p.barcode_url)} className="h-8 max-w-[100px] object-contain opacity-80 hover:opacity-100" alt="barcode" /> : <span className="text-xs text-slate-400">-</span>}
+                                                        {/* ถ้ามี URL รูปจาก Server ให้โชว์รูป ถ้าไม่มีให้ Generate ใหม่ */}
+                                                        {p.barcode_url ? (
+                                                            <img src={getImageUrl(p.barcode_url)} className="h-10 max-w-[120px] object-contain" alt="barcode" />
+                                                        ) : (
+                                                            <div className="opacity-80 pointer-events-none">
+                                                                <Barcode value={p.sku} height={30} width={1} displayValue={false} margin={0} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="py-4 px-6">

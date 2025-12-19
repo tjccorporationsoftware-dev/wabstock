@@ -2,8 +2,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
-    /* bg-gray-50 = พื้นหลังสีเทาอ่อนๆ (เกือบขาว) */
-    /* text-gray-900 = ตัวหนังสือสีเทาเข้มเกือบดำ */
+    @apply bg-gray-50 text-gray-900 overflow-x-hidden;
+    /* overflow-x-hidden = ป้องกันไม่ให้หน้าเว็บเลื่อนซ้ายขวาในระดับ Body */
   }
 }

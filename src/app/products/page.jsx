@@ -378,132 +378,104 @@ export default function ProductsPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full whitespace-nowrap">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                            <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th className="py-4 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">สินค้า</th>
-                                    <th className="py-4 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">รหัส SKU</th>
-                                    <th className="py-4 px-6 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">บาร์โค้ด</th>
-                                    <th className="py-4 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">หมวดหมู่</th>
-                                    <th className="py-4 px-6 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">คงเหลือ</th>
-                                    <th className="py-4 px-6 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">หน่วยนับ</th>
-                                    <th className="py-4 px-6 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">จัดการ</th>
+                                    <th className="py-3 px-3 text-left text-xs font-semibold text-gray-700 w-[25%]">สินค้า</th>
+                                    <th className="py-3 px-2 text-left text-xs font-semibold text-gray-700 w-[12%]">รหัส SKU</th>
+                                    <th className="py-3 px-2 text-left text-xs font-semibold text-gray-700 w-[12%]">บาร์โค้ด</th>
+                                    <th className="py-3 px-2 text-left text-xs font-semibold text-gray-700 w-[10%]">หมวดหมู่</th>
+                                    <th className="py-3 px-2 text-center text-xs font-semibold text-gray-700 w-[10%]">คงเหลือ</th>
+                                    <th className="py-3 px-2 text-center text-xs font-semibold text-gray-700 w-[8%]">หน่วย</th>
+                                    <th className="py-3 px-2 text-center text-xs font-semibold text-gray-700 w-[10%]">จัดการ</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredProducts.length > 0 ? (
-                                    filteredProducts.map((p) => (
-                                        <tr key={p.id} className="hover:bg-slate-50 transition-colors duration-150 group">
-                                            {/* Product Image & Name */}
-                                            <td className="py-4 px-6 align-top">
-                                                <div className="flex items-start gap-4">
-                                                    <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden">
-                                                        {p.image_url ? (
-                                                            <img src={getImageUrl(p.image_url)} className="w-full h-full object-cover" alt={p.name} />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                                <Package size={20} />
-                                                            </div>
-                                                        )}
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredProducts.map((p) => (
+                                    <tr key={p.id} className="group hover:bg-indigo-50/30 transition-colors">
+                                        <td className="py-3 px-3 align-top">
+                                            <div className="flex items-start gap-2">
+                                                <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-400 mt-1">
+                                                    <Box size={16} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="font-medium text-gray-900 text-sm wrap-break-word whitespace-normal leading-tight">
+                                                        {p.name}
                                                     </div>
-                                                    <div className="max-w-[200px] whitespace-normal">
-                                                        <div className="font-semibold text-slate-800 line-clamp-2">{p.name}</div>
-                                                       
-                                                    </div>
+                                                    {p.description && <div className="text-xs text-gray-500 line-clamp-1 mt-0.5">{p.description}</div>}
                                                 </div>
-                                            </td>
-
-                                            {/* SKU */}
-                                            <td className="py-4 px-6 align-top">
-                                                <span className="font-mono text-sm text-slate-600 bg-slate-100 px-2 py-1 rounded">{p.sku}</span>
-                                            </td>
-
-                                            {/* Barcode (Clickable) */}
-                                            <td className="py-4 px-6 align-top text-center">
-                                                <div
-                                                    className="cursor-pointer hover:scale-105 transition-transform inline-block p-1 rounded hover:bg-white hover:shadow-sm"
-                                                    onClick={() => setSelectedSku(p.sku)}
-                                                >
-                                                    {p.barcode_url ? (
-                                                        <img src={getImageUrl(p.barcode_url)} className="h-8 max-w-[100px] object-contain opacity-80 hover:opacity-100" alt="barcode" />
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400">-</span>
-                                                    )}
-                                                </div>
-                                            </td>
-
-                                            {/* Category */}
-                                            <td className="py-4 px-6 align-top">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                    ${p.category === 'เครื่องมือแพทย์' ? 'bg-rose-100 text-rose-800' :
-                                                        p.category === 'อุปกรณ์ไฟฟ้า' ? 'bg-amber-100 text-amber-800' :
-                                                            p.category === 'อุปกรณ์คอมพิวเตอร์' ? 'bg-blue-100 text-blue-800' :
-                                                                'bg-slate-100 text-slate-600'
-                                                    }`}>
-                                                    {p.category}
-                                                </span>
-                                            </td>
-
-                                            {/* Stock Details */}
-                                            <td className="py-4 px-6 align-top text-right">
-                                                <div className="flex flex-col gap-2 items-end">
-                                                    {p.stocks && p.stocks.length > 0 ? (
-                                                        p.stocks.map((stock, index) => (
-                                                            stock.quantity > 0 && (
-                                                                <div key={index} className="flex items-center gap-2 text-xs bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
-                                                                    <div className="flex items-center gap-1 text-slate-500">
-                                                                        <MapPin size={10} />
-                                                                        {stock.warehouse_name || 'คลังหลัก'}
-                                                                    </div>
-                                                                    <div className="font-bold text-indigo-600">
-                                                                        {stock.quantity.toLocaleString()}
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400 italic">ไม่มีสินค้า</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 align-top text-right">
-                                                <div className="flex flex-col gap-2 items-end">
-                                                     <div className="text-xs text-slate-500 mt-0.5">{p.unit}</div>
-                                                </div>
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td className="py-4 px-6 align-top text-center">
-                                                {role === "ADMIN" && (
-                                                    <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => handleOpenModal(p)}
-                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors tooltip"
-                                                            title="แก้ไข"
-                                                        >
-                                                            <Edit size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(p.id)}
-                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors tooltip"
-                                                            title="ลบ"
-                                                        >
-                                                            <Trash2 size={18} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="6" className="py-12 text-center text-slate-400">
-                                            <div className="flex flex-col items-center justify-center gap-3">
-                                                <Box size={48} className="text-slate-200" />
-                                                <p>ไม่พบข้อมูลสินค้า</p>
                                             </div>
                                         </td>
+                                        <td className="py-3 px-2 align-top">
+                                            <span className="text-xs font-mono text-gray-600 bg-gray-50 px-1.5 py-0.5 rounded break-all">
+                                                {p.sku || "-"}
+                                            </span>
+                                        </td>
+                                        <td className="py-2 px-2 text-center align-middle">
+                                            <div
+                                                // 1. กำหนดขนาดกล่องให้ชัดเจน (w-36 h-16) และใช้ flex จัดกึ่งกลาง
+                                                className="cursor-pointer hover:scale-105 transition-transform bg-white border border-transparent hover:border-slate-200 rounded hover:shadow-md
+                   w-36 h-16 flex items-center justify-center mx-auto overflow-hidden"
+                                                onClick={() => setSelectedSku(p.sku)}
+                                                title="คลิกเพื่อขยาย"
+                                            >
+                                                {p.barcode_url ? (
+                                                    // 2. ปรับรูปภาพ: ให้สูงเต็มกล่อง (h-full) แต่กว้างไม่เกินกล่อง (object-contain)
+                                                    <img
+                                                        src={getImageUrl(p.barcode_url)}
+                                                        className="h-full w-full object-contain p-1"
+                                                        alt="barcode"
+                                                    />
+                                                ) : (
+                                                    // 3. ปรับ Barcode Component: เพิ่ม height ให้ใกล้เคียงกับรูปภาพ (ประมาณ 40-50)
+                                                    <div className="opacity-80 pointer-events-none flex items-center justify-center">
+                                                        <Barcode
+                                                            value={p.sku}
+                                                            height={35}       // ปรับความสูงให้พอดีกับกล่อง h-16 (64px)
+                                                            width={1.2}       // ปรับความกว้างแท่งบาร์โค้ดให้ดูสมส่วน
+                                                            displayValue={false}
+                                                            margin={0}
+                                                            background="transparent"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-2 align-top">
+                                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 whitespace-nowrap">
+                                                {p.category}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2 align-top text-center">
+                                            <span className={`text-xs font-bold ${p.total_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                {p.total_stock > 0 ? p.total_stock : 'หมด'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2 align-top text-center text-xs text-gray-600">
+                                            {p.unit || "ชิ้น"}
+                                        </td>
+                                        <td className="py-3 px-2 align-top text-center">
+                                            {role === "ADMIN" && (
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button
+                                                        onClick={() => handleOpenModal(p)}
+                                                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                        title="แก้ไข"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(p.id)}
+                                                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded transition-colors"
+                                                        title="ลบ"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+
                                     </tr>
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
