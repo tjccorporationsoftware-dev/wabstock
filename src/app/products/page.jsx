@@ -414,7 +414,7 @@ export default function ProductsPage() {
 
                                             <div className="min-w-0 flex flex-col justify-center">
                                                 {/* ชื่อสินค้าใหญ่ขึ้นบนจอคอม */}
-                                                <p className="font-semibold text-slate-800 text-sm md:text-base lg:text-lg truncate">
+                                                <p className="font-semibold text-slate-800 text-sm md:text-base lg:text-sm truncate">
                                                     {p.name}
                                                 </p>
                                                 <span className="md:hidden text-[11px] text-slate-500">
