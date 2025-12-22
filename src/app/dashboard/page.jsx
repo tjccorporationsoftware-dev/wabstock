@@ -6,7 +6,7 @@ import api from '@/lib/axios';
 import {
     Package, AlertTriangle, Box, BarChart2, Warehouse,
     ArrowRight, Calendar, MapPin, PieChart as PieChartIcon,
-    CheckCircle, TrendingUp // เพิ่มไอคอนนี้เข้ามา
+    CheckCircle, TrendingUp
 } from 'lucide-react';
 
 import {
@@ -75,9 +75,7 @@ export default function Dashboard() {
         value: parseInt(wh.product_count || 0)
     })).filter(item => item.value > 0) || [];
 
-    // B. ข้อมูล Horizontal Bar Chart (สินค้าที่มีสต็อกมากที่สุด 5 อันดับ) - [แก้ไขใหม่]
-    // หมายเหตุ: ต้องมั่นใจว่า Backend ส่ง topStockItems หรือ topProducts มาให้
-    // ถ้า Backend ยังไม่ได้ทำ ให้ใช้ stats?.allProducts?.sort(...) แทนชั่วคราวได้
+    // B. ข้อมูล Horizontal Bar Chart
     const highStockChartData = (stats?.topStockItems || []).slice(0, 5).map(item => ({
         name: item.name,
         stock: parseInt(item.quantity || 0)
@@ -105,12 +103,17 @@ export default function Dashboard() {
 
     return (
         <div className="flex bg-gray-50/50 min-h-screen font-sans overflow-hidden">
+            {/* ⚠️ หมายเหตุ: ถ้าใน layout.tsx คุณใส่ <Sidebar /> ไปแล้ว 
+               ให้ลบบรรทัด <Sidebar /> ด้านล่างนี้ออกนะครับ ไม่งั้นมันจะซ้อนกัน 2 อัน 
+            */}
             <Sidebar />
-            <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto h-screen mt-16 md:mt-6  lg:mt-1">
+
+            {/* ✅✅ แก้ไขตรงนี้: เพิ่ม Class ซ่อน Scrollbar ✅✅ */}
+            <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto h-screen mt-16 md:mt-6 lg:mt-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 
                 {/* --- Header --- */}
                 <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
-                    <div className="min-w-0"> {/* min-w-0 ช่วยกัน textล้น */}
+                    <div className="min-w-0">
                         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-800 tracking-tight whitespace-nowrap">
                             Dashboard
                         </h1>

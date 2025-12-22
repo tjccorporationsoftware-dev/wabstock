@@ -65,11 +65,12 @@ export default function Sidebar() {
 
             {/* 🖥️ Sidebar */}
             <aside className={`
+                /* พื้นฐาน Mobile */
                 fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-900 text-white p-4 flex flex-col transition-transform duration-300 ease-in-out
                 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
                 
-                ${/* ✅ จุดที่แก้: ใช้ sticky + top-0 + h-screen */ ''}
-                md:translate-x-0 md:sticky md:top-0 md:h-screen md:shrink-0
+                /* ✅ ปรับตรงนี้: ใช้ md:fixed เพื่อให้บน PC มันลอยนิ่งๆ ไม่ขยับไปไหน */
+                md:translate-x-0 md:top-0 md:h-screen
             `}>
 
                 <div className="flex justify-between items-center mb-6 md:justify-center">
@@ -99,8 +100,7 @@ export default function Sidebar() {
                     </div>
                 </div>
 
-                {/* ✅ เพิ่ม overflow-y-auto ตรงนี้เพื่อให้ scroll ภายในเมนูได้ถ้าจอเตี้ย */}
-                <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar  ">
                     {displayedMenu.map((item) => {
                         const isActive = pathname === item.href;
                         return (

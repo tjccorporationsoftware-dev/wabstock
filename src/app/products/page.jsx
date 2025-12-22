@@ -436,12 +436,25 @@ export default function ProductsPage() {
                                     <td className="px-3 py-4 text-center align-middle">
                                         <div
                                             onClick={() => setSelectedSku(p.sku)}
-                                            className="cursor-pointer border border-dashed border-slate-300 rounded p-1 h-8 md:h-10 mx-auto flex justify-center items-center hover:border-indigo-400 bg-white"
+                                            className="cursor-pointer border border-dashed border-slate-300 rounded p-1 h-8 md:h-10 mx-auto flex justify-center items-center hover:border-indigo-400 bg-white overflow-hidden"
                                         >
-                                            {p.barcode_url
-                                                ? <img src={getImageUrl(p.barcode_url)} className="h-full object-contain" />
-                                                : <ScanBarcode size={18} className="text-slate-400" />
-                                            }
+                                            {p.barcode_url ? (
+                                                // กรณีมีรูปที่อัปโหลดไว้ -> โชว์รูป
+                                                <img src={getImageUrl(p.barcode_url)} className="h-full object-contain" />
+                                            ) : (
+                                                // กรณีไม่มีรูป -> สร้างบาร์โค้ดจาก SKU (ตัดตัวหนังสือออกเพื่อให้ใส่ในช่องเล็กๆ ได้พอดี)
+                                                <div className="flex items-center justify-center w-full h-full transform scale-75 origin-center">
+                                                    <Barcode
+                                                        value={p.sku}
+                                                        format="CODE128"
+                                                        width={1.5}
+                                                        height={40}
+                                                        displayValue={false} // ไม่โชว์ตัวเลข SKU (เพราะช่องมันเล็ก)
+                                                        margin={0}
+                                                        background="transparent"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
 
@@ -453,9 +466,11 @@ export default function ProductsPage() {
                                     </td>
 
                                     {/* ===== STOCK ===== */}
+                                    {/* ===== STOCK ===== */}
                                     <td className="px-3 py-4 text-center align-middle">
                                         {/* ตัวเลขสต็อกใหญ่ขึ้น */}
-                                        <span className={`font-bold text-sm md:text-base lg:text-lg ${p.total_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        {/* ✅ แก้ไขเงื่อนไขตรงนี้: แปลงเป็นตัวเลข และเช็คว่าถ้า >= 20 สีเขียว, ถ้าน้อยกว่านั้นสีแดง */}
+                                        <span className={`font-bold text-sm md:text-base lg:text-lg ${Number(p.total_stock) >= 20 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                             {p.total_stock > 0 ? p.total_stock : 'หมด'}
                                         </span>
                                     </td>
@@ -482,9 +497,54 @@ export default function ProductsPage() {
                                     </td>
                                 </tr>
                             ))}
+
                         </tbody>
                     </table>
                 </div>
+                {filteredProducts.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+                        <div className="text-xs text-slate-500">
+                            แสดง {indexOfFirstItem + 1} ถึง {Math.min(indexOfLastItem, filteredProducts.length)} จาก {filteredProducts.length} รายการ
+                        </div>
+                        <div className="flex gap-1">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                let pageNum = i + 1;
+                                if (totalPages > 5 && currentPage > 3) {
+                                    pageNum = currentPage - 3 + i;
+                                    if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                                }
+                                if (pageNum < 1) pageNum = i + 1;
+
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(pageNum)}
+                                        className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${currentPage === pageNum
+                                            ? 'bg-indigo-600 text-white shadow-sm'
+                                            : 'text-slate-600 hover:bg-white'
+                                            }`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* MODAL เพิ่ม/แก้ไข สินค้า */}

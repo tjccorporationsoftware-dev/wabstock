@@ -188,17 +188,17 @@ export default function StockOutModernPage() {
                     {/* Header */}
                     <div
                         className="
-            p-6 md:p-8
-            bg-white/90
-            backdrop-blur-md
-            z-10
-            flex flex-col gap-4 md:gap-6
-            border-b border-gray-100
-            shadow-[0_4px_20px_rgba(0,0,0,0.04)]
-        "
+                                        p-6 md:p-8
+                                        bg-white/90
+                                        backdrop-blur-md
+                                        z-10
+                                        flex flex-col gap-4 md:gap-6
+                                        border-b border-gray-100
+                                        shadow-[0_4px_20px_rgba(0,0,0,0.04)]
+                                    "
                     >
                         <div className="flex justify-between items-center">
-                            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                            <h1 className="text-2xl md:text-xl font-bold text-gray-800 flex items-center gap-3">
                                 <Truck className="text-blue-500 w-8 h-8 md:w-10 md:h-10" />
                                 เบิกสินค้า
                                 <span className="text-gray-400 font-medium text-base md:text-xl">
@@ -366,7 +366,7 @@ export default function StockOutModernPage() {
 
                                                     {/* Name */}
                                                     <td className="p-3 md:p-4">
-                                                        <div className="font-semibold text-gray-800 text-sm md:text-base lg:text-lg mb-1">
+                                                        <div className="font-semibold text-gray-800 text-sm md:text-base lg:text-0 mb-1">
                                                             {product.name}
                                                         </div>
                                                         <div className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] md:text-xs font-mono bg-gray-100 text-gray-500">
@@ -390,9 +390,12 @@ export default function StockOutModernPage() {
                                                     {/* Stock */}
                                                     <td className="p-3 md:p-4 text-right">
                                                         <div
-                                                            className={`text-lg md:text-xl lg:text-2xl font-bold ${displayStock <= 0
-                                                                ? 'text-gray-400'
-                                                                : 'text-blue-600'
+                                                            className={`text-lg md:text-xl lg:text-xl font-bold
+                                                                    ${displayStock <= 0
+                                                                    ? 'text-gray-400'
+                                                                    : displayStock < 20
+                                                                        ? 'text-red-500'
+                                                                        : 'text-blue-600'
                                                                 }`}
                                                         >
                                                             {displayStock}
@@ -401,6 +404,7 @@ export default function StockOutModernPage() {
                                                             {product.unit}
                                                         </div>
                                                     </td>
+
 
                                                     {/* Add Button */}
                                                     <td className="p-3 md:p-4 text-center">
