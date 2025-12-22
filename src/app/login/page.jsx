@@ -56,8 +56,9 @@ export default function LoginPage() {
                 timerProgressBar: true,
             });
             Toast.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ' });
-
-            router.push('/dashboard');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 500); // รอ 0.5 วินาที ให้ Cookie ฝังชัวร์ๆ แล้วค่อยไป
 
         } catch (err) {
             console.error(err);
