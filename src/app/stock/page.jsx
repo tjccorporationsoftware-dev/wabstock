@@ -180,28 +180,18 @@ export default function StockOutModernPage() {
         <div className="flex bg-[#F3F4F6] min-h-screen font-sans">
             <Sidebar />
 
-            <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden mt-16 md:mt-6  lg:mt-1 ">
+            <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden mt-16 md:mt-6 lg:mt-1">
 
                 {/* ================= LEFT: Catalog & Search ================= */}
                 <div className="flex-1 flex flex-col relative">
 
                     {/* Header */}
-                    <div
-                        className="
-                                        p-6 md:p-8
-                                        bg-white/90
-                                        backdrop-blur-md
-                                        z-10
-                                        flex flex-col gap-4 md:gap-6
-                                        border-b border-gray-100
-                                        shadow-[0_4px_20px_rgba(0,0,0,0.04)]
-                                    "
-                    >
+                    <div className="p-4 md:p-5 bg-white/90 backdrop-blur-md z-10 flex flex-col gap-3 md:gap-4 border-b border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                         <div className="flex justify-between items-center">
-                            <h1 className="text-2xl md:text-xl font-bold text-gray-800 flex items-center gap-3">
-                                <Truck className="text-blue-500 w-8 h-8 md:w-10 md:h-10" />
+                            <h1 className="text-xl md:text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <Truck className="text-blue-500 w-6 h-6 md:w-7 md:h-7" />
                                 เบิกสินค้า
-                                <span className="text-gray-400 font-medium text-base md:text-xl">
+                                <span className="text-gray-400 font-medium text-sm md:text-base">
                                     (Stock Out)
                                 </span>
                             </h1>
@@ -209,131 +199,89 @@ export default function StockOutModernPage() {
 
                         {/* Search Bar */}
                         <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none">
-                                <Search className="h-5 w-5 md:h-6 md:w-6 text-gray-400 group-focus-within:text-blue-400 transition-colors" />
+                            <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 md:h-5 md:w-5 text-gray-400 group-focus-within:text-blue-400 transition-colors" />
                             </div>
 
                             <input
                                 ref={searchInputRef}
                                 type="text"
-                                className="
-                    block w-full
-                    pl-11 pr-11 py-3 md:py-4 md:pl-14
-                    bg-[#F1F3F7]
-                    rounded-2xl
-                    text-gray-700 placeholder-gray-400
-                    focus:bg-white
-                    focus:ring-2 focus:ring-blue-400
-                    transition-all
-                    text-base md:text-lg
-                    shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]
-                "
+                                className="block w-full pl-10 pr-10 py-2.5 md:py-3 md:pl-11 bg-[#F1F3F7] rounded-2xl text-gray-700 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-400 transition-all text-sm md:text-base shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]"
                                 placeholder="พิมพ์ชื่อหรือรหัสสินค้า..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 autoFocus
                             />
 
-                            <div className="absolute inset-y-0 right-0 pr-4 md:pr-5 flex items-center pointer-events-none">
-                                <ScanBarcode className="h-5 w-5 md:h-6 md:w-6 text-gray-400" />
+                            <div className="absolute inset-y-0 right-0 pr-3 md:pr-4 flex items-center pointer-events-none">
+                                <ScanBarcode className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                             </div>
                         </div>
 
                         {/* Filter Bar */}
-                        <div className="flex gap-2 md:gap-3 overflow-x-auto pb-1 custom-scrollbar">
+                        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
                             <button
                                 onClick={() => setSelectedFilterWarehouse('ALL')}
-                                className={`
-                    flex items-center gap-2
-                    px-4 py-2 md:px-5 md:py-2.5
-                    rounded-full
-                    text-sm md:text-base font-semibold
-                    whitespace-nowrap
-                    transition-all
-                    border
-                    ${selectedFilterWarehouse === 'ALL'
+                                className={`flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all border ${selectedFilterWarehouse === 'ALL'
                                         ? 'bg-gray-800/90 text-white border-gray-800 shadow-sm'
                                         : 'bg-white/80 text-gray-500 border-gray-200 hover:bg-gray-50'
-                                    }
-                `}
+                                    }`}
                             >
-                                <Warehouse size={16} className="md:w-5 md:h-5" />
+                                <Warehouse size={14} className="md:w-4 md:h-4" />
                                 ทั้งหมด
-                                {selectedFilterWarehouse === 'ALL' && <Check size={14} className="md:w-4 md:h-4" />}
+                                {selectedFilterWarehouse === 'ALL' && <Check size={12} className="md:w-3.5 md:h-3.5" />}
                             </button>
 
                             {warehouses.map(wh => (
                                 <button
                                     key={wh.id}
                                     onClick={() => setSelectedFilterWarehouse(wh.id)}
-                                    className={`
-                        flex items-center gap-2
-                        px-4 py-2 md:px-5 md:py-2.5
-                        rounded-full
-                        text-sm md:text-base font-semibold
-                        whitespace-nowrap
-                        transition-all
-                        border
-                        ${selectedFilterWarehouse === wh.id
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all border ${selectedFilterWarehouse === wh.id
                                             ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
                                             : 'bg-white/80 text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600'
-                                        }
-                    `}
+                                        }`}
                                 >
                                     {wh.name}
-                                    {selectedFilterWarehouse === wh.id && <Check size={14} className="md:w-4 md:h-4" />}
+                                    {selectedFilterWarehouse === wh.id && <Check size={12} className="md:w-3.5 md:h-3.5" />}
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     {/* List View */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[#F6F7FB]">
+                    <div className="flex-1 overflow-y-auto p-3 md:p-4 custom-scrollbar bg-[#F6F7FB]">
                         {isLoading ? (
-                            <div className="flex justify-center items-center h-64 text-gray-400 text-lg">
+                            <div className="flex justify-center items-center h-64 text-gray-400 text-base">
                                 กำลังโหลดข้อมูล...
                             </div>
                         ) : filteredProducts.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-64 text-gray-400 opacity-60">
-                                <Package size={64} className="mb-4 w-20 h-20" />
-                                <p className="text-lg md:text-xl">
+                                <Package size={48} className="mb-3 w-16 h-16" />
+                                <p className="text-base md:text-lg">
                                     ไม่พบสินค้า {selectedFilterWarehouse !== 'ALL' && 'ในคลังนี้'}
                                 </p>
                             </div>
                         ) : (
-                            <div
-                                className="
-                    bg-white
-                    rounded-2xl
-                    shadow-[0_10px_30px_rgba(0,0,0,0.05)]
-                    border border-gray-100/70
-                    overflow-hidden
-                "
-                            >
+                            <div className="bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.05)] border border-gray-100/70 overflow-hidden">
                                 <table className="w-full text-left">
-                                    <thead className="bg-[#F7F8FC] text-gray-500 font-semibold text-xs md:text-sm uppercase border-b border-gray-100">
+                                    <thead className="bg-[#F7F8FC] text-gray-500 font-semibold text-xs uppercase border-b border-gray-100">
                                         <tr>
-                                            <th className="p-4 md:p-5 w-16 md:w-24 text-center">รูป</th>
-                                            <th className="p-4 md:p-5">ชื่อสินค้า / รหัส</th>
-                                            <th className="p-4 md:p-5 text-center">สถานะ</th>
-                                            <th className="p-4 md:p-5 text-right whitespace-nowrap">คงเหลือ</th>
-                                            <th className="p-4 md:p-5 w-10 md:w-16"></th>
+                                            <th className="p-3 md:p-4 w-12 md:w-20 text-center">รูป</th>
+                                            <th className="p-3 md:p-4">ชื่อสินค้า / รหัส</th>
+                                            <th className="p-3 md:p-4 text-center">สถานะ</th>
+                                            <th className="p-3 md:p-4 text-right whitespace-nowrap">คงเหลือ</th>
+                                            <th className="p-3 md:p-4 w-8 md:w-12"></th>
                                         </tr>
                                     </thead>
 
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredProducts.map(product => {
-                                            const isOutOfStock =
-                                                !product.stocks ||
-                                                product.stocks.every(s => s.quantity <= 0);
-
+                                            const isOutOfStock = !product.stocks || product.stocks.every(s => s.quantity <= 0);
                                             let displayStock = product.total_stock;
                                             let stockLabel = 'รวมทุกคลัง';
 
                                             if (selectedFilterWarehouse !== 'ALL') {
-                                                const stock = product.stocks?.find(
-                                                    s => s.warehouse_id === selectedFilterWarehouse
-                                                );
+                                                const stock = product.stocks?.find(s => s.warehouse_id === selectedFilterWarehouse);
                                                 displayStock = stock ? stock.quantity : 0;
                                                 stockLabel = 'ในคลังนี้';
                                             }
@@ -342,62 +290,49 @@ export default function StockOutModernPage() {
                                                 <tr
                                                     key={product.id}
                                                     onClick={() => handleProductClick(product)}
-                                                    className={`
-                                    group cursor-pointer transition-all
-                                    ${isOutOfStock || displayStock <= 0
+                                                    className={`group cursor-pointer transition-all ${isOutOfStock || displayStock <= 0
                                                             ? 'bg-gray-50 opacity-60 cursor-not-allowed'
                                                             : 'hover:bg-blue-50/30'
-                                                        }
-                                `}
+                                                        }`}
                                                 >
                                                     {/* Image */}
-                                                    <td className="p-3 md:p-4 text-center">
-                                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-xl overflow-hidden mx-auto flex items-center justify-center">
+                                                    <td className="p-2 md:p-3 text-center">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 rounded-xl overflow-hidden mx-auto flex items-center justify-center">
                                                             {product.image_url ? (
-                                                                <img
-                                                                    src={getImageUrl(product.image_url)}
-                                                                    className="w-full h-full object-cover"
-                                                                />
+                                                                <img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" />
                                                             ) : (
-                                                                <Box size={20} className="text-gray-300 md:w-8 md:h-8" />
+                                                                <Box size={16} className="text-gray-300 md:w-6 md:h-6" />
                                                             )}
                                                         </div>
                                                     </td>
 
                                                     {/* Name */}
-                                                    <td className="p-3 md:p-4">
-                                                        <div className="font-semibold text-gray-800 text-sm md:text-base lg:text-0 mb-1">
+                                                    <td className="p-2 md:p-3">
+                                                        <div className="font-semibold text-gray-800 text-sm md:text-base mb-1">
                                                             {product.name}
                                                         </div>
-                                                        <div className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] md:text-xs font-mono bg-gray-100 text-gray-500">
+                                                        <div className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] md:text-xs font-mono bg-gray-100 text-gray-500">
                                                             {product.sku}
                                                         </div>
                                                     </td>
 
                                                     {/* Status */}
-                                                    <td className="p-3 md:p-4 text-center">
+                                                    <td className="p-2 md:p-3 text-center">
                                                         {isOutOfStock ? (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 rounded-full bg-red-50 text-red-600 text-xs md:text-sm font-semibold border border-red-100">
-                                                                <AlertTriangle size={10} className="md:w-4 md:h-4" /> หมด
+                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold border border-red-100">
+                                                                <AlertTriangle size={10} className="md:w-3.5 md:h-3.5" /> หมด
                                                             </span>
                                                         ) : (
-                                                            <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">
+                                                            <span className="text-xs text-gray-500 whitespace-nowrap">
                                                                 {stockLabel}
                                                             </span>
                                                         )}
                                                     </td>
 
                                                     {/* Stock */}
-                                                    <td className="p-3 md:p-4 text-right">
-                                                        <div
-                                                            className={`text-lg md:text-xl lg:text-xl font-bold
-                                                                    ${displayStock <= 0
-                                                                    ? 'text-gray-400'
-                                                                    : displayStock < 20
-                                                                        ? 'text-red-500'
-                                                                        : 'text-blue-600'
-                                                                }`}
-                                                        >
+                                                    <td className="p-2 md:p-3 text-right">
+                                                        <div className={`text-base md:text-lg font-bold ${displayStock <= 0 ? 'text-gray-400' : displayStock < 20 ? 'text-red-500' : 'text-blue-600'
+                                                            }`}>
                                                             {displayStock}
                                                         </div>
                                                         <div className="text-[10px] md:text-xs text-gray-400">
@@ -405,20 +340,11 @@ export default function StockOutModernPage() {
                                                         </div>
                                                     </td>
 
-
                                                     {/* Add Button */}
-                                                    <td className="p-3 md:p-4 text-center">
+                                                    <td className="p-2 md:p-3 text-center">
                                                         {!isOutOfStock && displayStock > 0 && (
-                                                            <button
-                                                                className="
-                                                    p-2 md:p-3 rounded-full
-                                                    bg-blue-100 text-blue-600
-                                                    opacity-0 group-hover:opacity-100
-                                                    transition-all
-                                                    hover:bg-blue-500 hover:text-white
-                                                "
-                                                            >
-                                                                <Plus size={16} className="md:w-6 md:h-6" />
+                                                            <button className="p-1.5 md:p-2 rounded-full bg-blue-100 text-blue-600 opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-500 hover:text-white">
+                                                                <Plus size={14} className="md:w-5 md:h-5" />
                                                             </button>
                                                         )}
                                                     </td>
@@ -432,112 +358,67 @@ export default function StockOutModernPage() {
                     </div>
                 </div>
 
-
                 {/* ================= RIGHT: Cart ================= */}
-                <div className="
-                                w-full md:w-[450px] lg:w-[500px]
-                                bg-white
-                                border-l border-gray-100
-                                shadow-[0_0_40px_rgba(0,0,0,0.08)]
-                                z-20 flex flex-col h-full
-                            ">
+                <div className="w-full md:w-[380px] lg:w-[420px] bg-white border-l border-gray-100 shadow-[0_0_40px_rgba(0,0,0,0.08)] z-20 flex flex-col h-full">
                     {/* Header */}
-                    <div className="
-                                    p-5 md:p-6
-                                    bg-white/80
-                                    backdrop-blur-md
-                                    sticky top-0 z-10
-                                    border-b border-gray-100
-    ">
-                        <h2 className="font-bold text-gray-800 flex items-center gap-2 text-lg md:text-xl">
-                            <ShoppingCart className="text-blue-500 w-6 h-6 md:w-7 md:h-7" />
+                    <div className="p-4 md:p-5 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-gray-100">
+                        <h2 className="font-bold text-gray-800 flex items-center gap-2 text-base md:text-lg">
+                            <ShoppingCart className="text-blue-500 w-5 h-5 md:w-6 md:h-6" />
                             รายการที่เลือก ({cart.length})
                         </h2>
                     </div>
 
                     {/* Cart List */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 md:space-y-4 bg-[#F7F8FC]">
+                    <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2.5 md:space-y-3 bg-[#F7F8FC]">
                         {cart.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-3">
-                                <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                    <ShoppingCart size={40} className="opacity-30 md:w-12 md:h-12" />
+                            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-2">
+                                <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                    <ShoppingCart size={32} className="opacity-30 md:w-10 md:h-10" />
                                 </div>
-                                <p className="text-sm md:text-base">ยังไม่มีรายการ</p>
+                                <p className="text-sm">ยังไม่มีรายการ</p>
                             </div>
                         ) : (
                             cart.map(item => (
                                 <div
                                     key={item.uniqueKey}
-                                    className="
-                        bg-white
-                        p-4 md:p-5
-                        rounded-3xl
-                        border border-gray-100/70
-                        shadow-[0_8px_20px_rgba(0,0,0,0.05)]
-                        relative group
-                        transition-all duration-200
-                        hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)]
-                    "
+                                    className="bg-white p-3 md:p-4 rounded-2xl border border-gray-100/70 shadow-[0_8px_20px_rgba(0,0,0,0.05)] relative group transition-all duration-200 hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)]"
                                 >
                                     <button
                                         onClick={() => removeFromCart(item.uniqueKey)}
-                                        className="
-                            absolute top-2 right-2
-                            p-1.5 md:p-2
-                            text-gray-300
-                            hover:text-red-500
-                            hover:bg-red-50
-                            rounded-full
-                            transition
-                        "
+                                        className="absolute top-2 right-2 p-1 md:p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"
                                     >
-                                        <X size={16} className="md:w-5 md:h-5" />
+                                        <X size={14} className="md:w-4 md:h-4" />
                                     </button>
 
-                                    <div className="flex gap-3 md:gap-4 mb-3 md:mb-4 pr-6">
-                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-xl overflow-hidden shrink-0">
+                                    <div className="flex gap-2.5 md:gap-3 mb-2.5 md:mb-3 pr-6">
+                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 rounded-xl overflow-hidden shrink-0">
                                             {item.image_url && (
-                                                <img
-                                                    src={getImageUrl(item.image_url)}
-                                                    className="w-full h-full object-cover"
-                                                />
+                                                <img src={getImageUrl(item.image_url)} className="w-full h-full object-cover" />
                                             )}
                                         </div>
                                         <div>
-                                            <div className="font-semibold text-sm md:text-base text-gray-800 line-clamp-1">
+                                            <div className="font-semibold text-sm text-gray-800 line-clamp-1">
                                                 {item.name}
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs md:text-sm text-gray-500 mt-1">
-                                                <MapPin size={10} className="md:w-3.5 md:h-3.5" /> {item.warehouseName}
+                                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                                                <MapPin size={10} className="md:w-3 md:h-3" /> {item.warehouseName}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between bg-[#F5F6FA] p-2.5 md:p-3 rounded-2xl">
-                                        <span className="text-xs md:text-sm text-gray-500 ml-2">
+                                    <div className="flex items-center justify-between bg-[#F5F6FA] p-2 md:p-2.5 rounded-xl">
+                                        <span className="text-xs text-gray-500 ml-1.5">
                                             คงเหลือ: {item.maxQty}
                                         </span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5">
                                             <input
                                                 type="number"
                                                 placeholder="0"
-                                                className="
-                                    w-20 md:w-24 p-2 md:p-2.5
-                                    bg-white
-                                    border border-gray-200
-                                    rounded-xl
-                                    text-center
-                                    font-bold text-blue-600 text-base md:text-lg
-                                    focus:ring-2 focus:ring-blue-400
-                                    outline-none
-                                    transition
-                                "
+                                                className="w-16 md:w-20 p-1.5 md:p-2 bg-white border border-gray-200 rounded-lg text-center font-bold text-blue-600 text-sm md:text-base focus:ring-2 focus:ring-blue-400 outline-none transition"
                                                 value={item.inputQty}
-                                                onChange={(e) =>
-                                                    updateCartQty(item.uniqueKey, e.target.value)
-                                                }
+                                                onChange={(e) => updateCartQty(item.uniqueKey, e.target.value)}
                                             />
-                                            <span className="text-xs md:text-sm font-semibold text-gray-600 w-8 md:w-10">
+                                            <span className="text-xs font-semibold text-gray-600 w-7 md:w-8">
                                                 {item.unit}
                                             </span>
                                         </div>
@@ -548,30 +429,15 @@ export default function StockOutModernPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="
-                                    p-5 md:p-6
-                                    border-t border-gray-100
-                                    bg-white
-                                    shadow-[0_-10px_30px_rgba(0,0,0,0.04)]
-                                ">
-                        <div className="mb-4">
-                            <label className="text-xs md:text-sm font-bold text-gray-500 uppercase tracking-wider block mb-2">
+                    <div className="p-4 md:p-5 border-t border-gray-100 bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.04)]">
+                        <div className="mb-3">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">
                                 เหตุผลในการเบิก
                             </label>
                             <input
                                 type="text"
                                 placeholder="เช่น นำไปใช้หน้างาน A..."
-                                className="
-                                                w-full p-3 md:p-4
-                                                bg-[#F1F3F7]
-                                                border border-gray-200
-                                                rounded-2xl
-                                                focus:bg-white
-                                                focus:ring-2 focus:ring-blue-400
-                                                outline-none
-                                                transition
-                                                text-sm md:text-base
-                                            "
+                                className="w-full p-2.5 md:p-3 bg-[#F1F3F7] border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition text-sm"
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}
                             />
@@ -580,63 +446,59 @@ export default function StockOutModernPage() {
                         <button
                             onClick={handleSubmit}
                             disabled={cart.length === 0}
-                            className={`
-                                            w-full py-4 md:py-5
-                                            rounded-2xl
-                                            font-bold text-lg md:text-xl
-                                            flex justify-center items-center gap-2
-                                            transition-all active:scale-[0.98]
-                                            ${cart.length === 0
+                            className={`w-full py-3 md:py-3.5 rounded-xl font-bold text-base md:text-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${cart.length === 0
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-linear-to-r from-red-400 to-red-500 text-white shadow-[0_10px_25px_rgba(239,68,68,0.35)] hover:from-red-500 hover:to-red-600'}
-                                    `}
+                                    : 'bg-linear-to-r from-red-400 to-red-500 text-white shadow-[0_10px_25px_rgba(239,68,68,0.35)] hover:from-red-500 hover:to-red-600'
+                                }`}
                         >
-                            <Truck size={20} className="md:w-6 md:h-6" /> ยืนยันการเบิก
+                            <Truck size={18} className="md:w-5 md:h-5" /> ยืนยันการเบิก
                         </button>
                     </div>
                 </div>
 
             </div>
 
-            {/* ================= MODAL: เลือกคลังสินค้า (แสดงเฉพาะตอนเลือก Filter = All) ================= */}
+            {/* ================= MODAL: เลือกคลังสินค้า ================= */}
             {isWarehouseModalOpen && selectedProductForAdd && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                    <div className="bg-white w-full max-w-md md:max-w-lg lg:max-w-xl rounded-3xl shadow-2xl overflow-hidden p-6 md:p-8 animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center mb-6">
+                    <div className="bg-white w-full max-w-md md:max-w-lg rounded-2xl shadow-2xl overflow-hidden p-5 md:p-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-4">
                             <div>
-                                <h3 className="text-lg md:text-2xl font-bold text-gray-800">เลือกคลังสินค้าต้นทาง</h3>
-                                <p className="text-sm md:text-base text-gray-500">สินค้านี้มีอยู่ในหลายคลัง</p>
+                                <h3 className="text-base md:text-xl font-bold text-gray-800">เลือกคลังสินค้าต้นทาง</h3>
+                                <p className="text-xs md:text-sm text-gray-500">สินค้านี้มีอยู่ในหลายคลัง</p>
                             </div>
-                            <button onClick={() => setIsWarehouseModalOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-                                <X size={20} className="text-gray-500 md:w-6 md:h-6" />
+                            <button onClick={() => setIsWarehouseModalOpen(false)} className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                                <X size={16} className="text-gray-500 md:w-5 md:h-5" />
                             </button>
                         </div>
 
-                        <div className="space-y-3 md:space-y-4">
+                        <div className="space-y-2.5 md:space-y-3">
                             {selectedProductForAdd.stocks.map((stock, idx) => (
                                 <button
                                     key={idx}
                                     disabled={stock.quantity <= 0}
                                     onClick={() => addToCart(selectedProductForAdd, stock)}
-                                    className={`w-full p-4 md:p-5 rounded-2xl border-2 flex items-center justify-between transition-all group ${stock.quantity <= 0
-                                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                                        : 'border-gray-100 bg-white hover:border-blue-500 hover:bg-blue-50'
+                                    className={`w-full p-3 md:p-4 rounded-xl border-2 flex items-center justify-between transition-all group ${stock.quantity <= 0
+                                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                            : 'border-gray-100 bg-white hover:border-blue-500 hover:bg-blue-50'
                                         }`}
                                 >
-                                    <div className="flex items-center gap-3 md:gap-4">
-                                        <div className={`p-2 md:p-3 rounded-lg ${stock.quantity > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
-                                            <MapPin size={20} className="md:w-6 md:h-6" />
+                                    <div className="flex items-center gap-2.5 md:gap-3">
+                                        <div className={`p-2 rounded-lg ${stock.quantity > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
+                                            <MapPin size={16} className="md:w-5 md:h-5" />
                                         </div>
                                         <div className="text-left">
-                                            <div className="font-bold text-base md:text-lg text-gray-800 group-hover:text-blue-700">{stock.warehouse_name || stock.warehouse?.name}</div>
-                                            <div className="text-xs md:text-sm text-gray-500">คลังเก็บสินค้า</div>
+                                            <div className="font-bold text-sm md:text-base text-gray-800 group-hover:text-blue-700">
+                                                {stock.warehouse_name || stock.warehouse?.name}
+                                            </div>
+                                            <div className="text-xs text-gray-500">คลังเก็บสินค้า</div>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className={`text-xl md:text-2xl font-bold ${stock.quantity > 0 ? 'text-gray-800' : 'text-red-400'}`}>
+                                        <div className={`text-lg md:text-xl font-bold ${stock.quantity > 0 ? 'text-gray-800' : 'text-red-400'}`}>
                                             {stock.quantity}
                                         </div>
-                                        <div className="text-xs md:text-sm text-gray-400">{selectedProductForAdd.unit}</div>
+                                        <div className="text-xs text-gray-400">{selectedProductForAdd.unit}</div>
                                     </div>
                                 </button>
                             ))}

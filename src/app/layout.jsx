@@ -23,7 +23,6 @@ export const metadata = {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
-  manifest: "/manifest.json",
 };
 
 /* ✅ viewport ต้องแยกแบบนี้ */

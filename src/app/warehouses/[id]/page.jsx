@@ -247,12 +247,15 @@ export default function WarehouseDetail() {
 
 
     const handleDeleteOne = (productId) => {
-        showModal('confirm', 'ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบสินค้านี้?', async () => {
+        showModal('confirm', 'ยืนยันการลบ', 'คุณแน่ใจหรือไม่ที่จะลบสินค้านี้ออกจากคลังนี้?', async () => {
             try {
                 setIsDeleting(true);
-                await api.delete(`/products/${productId}`);
+                // ส่ง id (ซึ่งคือ warehouse id จาก useParams) ไปด้วย
+                await api.delete(`/warehouses/${id}/products/${productId}`);
+
                 setProducts(prev => prev.filter(p => p.id !== productId));
                 setSelectedIds(prev => prev.filter(id => id !== productId));
+                showModal('success', 'สำเร็จ', 'ลบสินค้าออกจากคลังเรียบร้อย');
             } catch (error) {
                 showModal('error', 'ลบไม่สำเร็จ', 'เกิดข้อผิดพลาดในการลบสินค้า');
             } finally {
@@ -261,29 +264,27 @@ export default function WarehouseDetail() {
         });
     };
 
+    // แก้ไข handleBulkDelete (ให้ยิงครั้งเดียว ไม่ต้องวน Loop เพื่อ Performance ที่ดีกว่า)
     const handleBulkDelete = () => {
         if (selectedIds.length === 0) return;
 
-        showModal('confirm', 'ยืนยันการลบหมู่', `ต้องการลบ ${selectedIds.length} รายการ?`, async () => {
+        showModal('confirm', 'ยืนยันการลบหมู่', `ต้องการลบ ${selectedIds.length} รายการออกจากคลังนี้?`, async () => {
             try {
                 setIsDeleting(true);
-                const BATCH_SIZE = 500;
-                const total = selectedIds.length;
 
-                for (let i = 0; i < total; i += BATCH_SIZE) {
-                    const batch = selectedIds.slice(i, i + BATCH_SIZE);
-                    await Promise.all(batch.map(pid => api.delete(`/products/${pid}`)));
-                }
+                // เรียกใช้ Bulk Delete API ที่สร้างไว้ด้านบน
+                await api.delete(`/warehouses/${id}/products/bulk`, {
+                    data: { ids: selectedIds }
+                });
 
-                // อัปเดต State ทีเดียวตอนจบ
                 setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
                 setSelectedIds([]);
-                showModal('success', 'เรียบร้อย', 'ลบข้อมูลเรียบร้อย');
+                showModal('success', 'เรียบร้อย', 'ลบข้อมูลออกจากคลังเรียบร้อย');
 
             } catch (error) {
                 console.error(error);
-                showModal('error', 'ผิดพลาด', 'เกิดข้อผิดพลาดในการลบหมู่ (บางรายการอาจถูกลบไปแล้ว)');
-                fetchInventory(); // โหลดข้อมูลใหม่เพื่อความชัวร์
+                showModal('error', 'ผิดพลาด', 'เกิดข้อผิดพลาดในการลบหมู่');
+                fetchInventory();
             } finally {
                 setIsDeleting(false);
             }

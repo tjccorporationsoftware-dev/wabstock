@@ -22,7 +22,7 @@ export default function Dashboard() {
 
     const [stats, setStats] = useState(null);
     const [movementData, setMovementData] = useState([]);
-    const [dateRange, setDateRange] = useState('7d');
+    const [dateRange, setDateRange] = useState('30d');
     const [loading, setLoading] = useState(true);
 
     // --- 1. โหลดข้อมูล ---
@@ -220,28 +220,63 @@ export default function Dashboard() {
 
                 {/* --- Section 3: Main Charts --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-
                     {/* Chart 3.1: Movement Bar Chart */}
                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 overflow-hidden">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
                             <h2 className="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2 whitespace-nowrap">
                                 <BarChart2 size={18} className="text-blue-500 md:w-5 md:h-5" />
-                                กราฟการเคลื่อนไหว
+                                กราฟการเคลื่อนไหว (จำนวนชิ้น)
                             </h2>
                             <div className="flex bg-gray-100 p-1 rounded-xl self-end sm:self-auto shrink-0">
-                                <button onClick={() => setDateRange('7d')} className={`px-3 py-1 text-xs md:text-sm rounded-lg transition-all whitespace-nowrap ${dateRange === '7d' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}>7 วัน</button>
-                                <button onClick={() => setDateRange('30d')} className={`px-3 py-1 text-xs md:text-sm rounded-lg transition-all whitespace-nowrap ${dateRange === '30d' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}>30 วัน</button>
+                                <button
+                                    onClick={() => setDateRange('7d')}
+                                    className={`px-3 py-1 text-xs md:text-sm rounded-lg transition-all whitespace-nowrap ${dateRange === '7d' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
+                                >
+                                    7 วัน
+                                </button>
+                                <button
+                                    onClick={() => setDateRange('30d')}
+                                    className={`px-3 py-1 text-xs md:text-sm rounded-lg transition-all whitespace-nowrap ${dateRange === '30d' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
+                                >
+                                    30 วัน
+                                </button>
                             </div>
                         </div>
                         <div className="h-[250px] md:h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={movementData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                                    <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                                    <YAxis stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
-                                    <Tooltip cursor={{ fill: '#F9FAFB' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
-                                    <Bar dataKey="stock_in" name="รับเข้า" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={20} />
-                                    <Bar dataKey="stock_out" name="เบิกออก" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={20} />
+                                    <XAxis
+                                        dataKey="date"
+                                        tickFormatter={(val) => {
+                                            if (!val || val === "NaN") return "";
+                                            try {
+                                                const parts = val.split('-');
+                                                if (parts.length < 3) return val;
+                                                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                                                return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+                                            } catch (e) { return val; }
+                                        }}
+                                        stroke="#9CA3AF"
+                                        fontSize={10}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        dy={10}
+                                    />
+                                    <YAxis
+                                        stroke="#9CA3AF"
+                                        fontSize={10}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => value.toLocaleString()}
+                                    />
+                                    <Tooltip
+                                        cursor={{ fill: '#F9FAFB' }}
+                                        formatter={(value) => [`${Math.abs(value).toLocaleString()} ชิ้น`]}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                    />
+                                    <Bar dataKey="stock_in" name="รับเข้า" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={dateRange === '30d' ? 12 : 20} />
+                                    <Bar dataKey="stock_out" name="เบิกออก" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={dateRange === '30d' ? 12 : 20} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -251,7 +286,7 @@ export default function Dashboard() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 overflow-hidden">
                         <div className="flex items-center gap-2 mb-4 md:mb-6">
                             <PieChartIcon size={18} className="text-purple-500 md:w-5 md:h-5" />
-                            <h2 className="text-base md:text-lg font-bold text-gray-800 whitespace-nowrap">สัดส่วนตามคลัง</h2>
+                            <h2 className="text-base md:text-lg font-bold text-gray-800 whitespace-nowrap">สัดส่วนสต็อก (ชิ้น)</h2>
                         </div>
                         <div className="h-[250px] md:h-[300px] w-full flex items-center justify-center">
                             {pieData && pieData.length > 0 ? (
@@ -260,7 +295,10 @@ export default function Dashboard() {
                                         <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value">
                                             {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                         </Pie>
-                                        <Tooltip formatter={(value) => parseInt(value).toLocaleString() + ' รายการ'} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
+                                        <Tooltip
+                                            formatter={(value) => `${Number(value).toLocaleString()} รายการ`}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                        />
                                         <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -279,7 +317,7 @@ export default function Dashboard() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 overflow-hidden">
                         <div className="flex items-center gap-2 mb-4 md:mb-6">
                             <TrendingUp size={18} className="text-indigo-500 md:w-5 md:h-5" />
-                            <h2 className="text-base md:text-lg font-bold text-gray-800 whitespace-nowrap">แนวโน้มสต็อกรวม</h2>
+                            <h2 className="text-base md:text-lg font-bold text-gray-800 whitespace-nowrap">แนวโน้มสต็อกรวม (ชิ้น)</h2>
                         </div>
                         <div className="h-[200px] md:h-[250px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -291,9 +329,23 @@ export default function Dashboard() {
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                                    <XAxis dataKey="date" tickFormatter={(val) => new Date(val).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                                    <XAxis
+                                        dataKey="date"
+                                        tickFormatter={(val) => {
+                                            if (!val || val === "NaN") return "";
+                                            const parts = val.split('-');
+                                            const d = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(val);
+                                            return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+                                        }}
+                                        tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
                                     <YAxis hide />
-                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                    <Tooltip
+                                        formatter={(value) => [`${Number(value).toLocaleString()} ชิ้น`]}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                                    />
                                     <Area type="monotone" dataKey="total" name="สต็อกรวม" stroke="#6366F1" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
                                 </AreaChart>
                             </ResponsiveContainer>
