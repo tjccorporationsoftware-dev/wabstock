@@ -4,10 +4,11 @@ import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
 import Cookies from 'js-cookie';
-import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, Box, Edit, ChevronLeft, ChevronRight, ScanBarcode } from 'lucide-react';
+import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, Box, Edit, ChevronLeft, ChevronRight, ScanBarcode, AlertTriangle } from 'lucide-react';
 import Barcode from 'react-barcode';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { useSearchParams } from 'next/navigation'; // ✅ เพิ่มบรรทัดนี้
 
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "ครุภัณฑ์", "เกษตร", "ก่อสร้าง", "สื่อการสอน", "งานไฟฟ้า",
     "เฟอร์นิเจอร์", "ครัวเรือน", "เทคโนโลยี", "เครื่องจักร",
@@ -28,6 +29,7 @@ export default function ProductsPage() {
 
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
+    const [showLowStock, setShowLowStock] = useState(false); // ✅ เพิ่ม State สำหรับกรองสินค้าใกล้หมด
     const [role, setRole] = useState('');
     const [warehouses, setWarehouses] = useState([]);
 
@@ -46,6 +48,17 @@ export default function ProductsPage() {
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
     const barcodeRef = useRef(null);
+    
+    // ✅ 1. เรียกใช้ Hook เพื่ออ่าน URL
+    const searchParams = useSearchParams();
+
+    // ✅ 2. เช็คว่าถ้า URL มีคำว่า ?filter=low_stock ให้เปิดโหมดสินค้าใกล้หมด
+    useEffect(() => {
+        const filterParam = searchParams.get('filter');
+        if (filterParam === 'low_stock') {
+            setShowLowStock(true);
+        }
+    }, [searchParams]);
 
     const getImageUrl = (url) => {
         if (!url) return null;
@@ -83,15 +96,22 @@ export default function ProductsPage() {
         if (selectedCategory !== 'ทั้งหมด') {
             result = result.filter(p => p.category === selectedCategory);
         }
+        // ✅ กรองสินค้าใกล้หมด (ต่ำกว่า 20)
+        if (showLowStock) {
+            result = result.filter(p => Number(p.total_stock) < 20);
+        }
         setFilteredProducts(result);
         setCurrentPage(1); // รีเซ็ตไปหน้า 1 เวลาค้นหา
-    }, [search, selectedCategory, products]);
+    }, [search, selectedCategory, showLowStock, products]);
 
     // ✅ คำนวณข้อมูลที่จะแสดงในหน้าปัจจุบัน
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+    // ✅ นับจำนวนสินค้าใกล้หมด
+    const lowStockCount = products.filter(p => Number(p.total_stock) < 20).length;
 
     const handleExportExcel = async () => {
         Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -381,6 +401,19 @@ export default function ProductsPage() {
                             <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
+
+                    {/* ✅ ปุ่มแสดงสินค้าใกล้หมด */}
+                    <button
+                        onClick={() => setShowLowStock(!showLowStock)}
+                        className={`w-full md:w-auto px-5 py-3 rounded-xl flex gap-2 items-center justify-center font-medium text-sm md:text-base transition-all ${showLowStock
+                            ? 'bg-rose-600 text-white shadow-md shadow-rose-200 hover:bg-rose-700'
+                            : 'bg-white text-rose-600 border border-rose-200 hover:bg-rose-50 hover:border-rose-300'
+                            }`}
+                    >
+                        <AlertTriangle size={20} />
+                        <span>สินค้าใกล้หมด</span>
+
+                    </button>
                 </div>
 
                 {/* Table Section */}
@@ -465,7 +498,6 @@ export default function ProductsPage() {
                                         </span>
                                     </td>
 
-                                    {/* ===== STOCK ===== */}
                                     {/* ===== STOCK ===== */}
                                     <td className="px-3 py-4 text-center align-middle">
                                         {/* ตัวเลขสต็อกใหญ่ขึ้น */}

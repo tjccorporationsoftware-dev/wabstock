@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
+import Link from 'next/link';
 import {
     Package, AlertTriangle, Box, BarChart2, Warehouse,
     ArrowRight, Calendar, MapPin, PieChart as PieChartIcon,
@@ -130,30 +131,34 @@ export default function Dashboard() {
                 {/* --- Section 1: Top Stats Cards --- */}
                 <div className="grid grid-cols-3 gap-2 md:gap-6">
                     {/* Card 1 */}
-                    <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
-                        <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
-                            <p className="text-[10px] md:text-sm font-medium text-gray-500 mb-0.5 md:mb-1 whitespace-nowrap">ทั้งหมด</p>
-                            <h3 className="text-lg md:text-3xl font-bold text-gray-800 truncate">
-                                {stats?.totalProducts?.toLocaleString() || 0}
-                            </h3>
+                    <Link href="/products" className="group">
+                        <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
+                            <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
+                                <p className="text-[10px] md:text-sm font-medium text-gray-500 mb-0.5 md:mb-1 whitespace-nowrap">ทั้งหมด</p>
+                                <h3 className="text-lg md:text-3xl font-bold text-gray-800 truncate">
+                                    {stats?.totalProducts?.toLocaleString() || 0}
+                                </h3>
+                            </div>
+                            <div className="p-1.5 md:p-3 bg-blue-50 text-blue-600 rounded-xl mb-1 md:mb-0 order-1 md:order-2 shrink-0">
+                                <Package size={18} className="md:w-7 md:h-7" />
+                            </div>
                         </div>
-                        <div className="p-1.5 md:p-3 bg-blue-50 text-blue-600 rounded-xl mb-1 md:mb-0 order-1 md:order-2 shrink-0">
-                            <Package size={18} className="md:w-7 md:h-7" />
-                        </div>
-                    </div>
+                    </Link>
 
                     {/* Card 2 */}
-                    <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
-                        <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
-                            <p className="text-[10px] md:text-sm font-medium text-gray-500 mb-0.5 md:mb-1 whitespace-nowrap">ใกล้หมด</p>
-                            <h3 className="text-lg md:text-3xl font-bold text-red-500 truncate">
-                                {stats?.lowStockItems?.length || 0}
-                            </h3>
+                    <Link href="/products?filter=low_stock" className="group block">
+                        <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-all hover:shadow-md cursor-pointer hover:border-red-200 h-full">
+                            <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
+                                <p className="text-xs md:text-sm font-medium text-gray-500 mb-1 whitespace-nowrap">สินค้าใกล้หมด</p>
+                                <h3 className="text-xl md:text-3xl font-bold text-red-500 truncate">
+                                    {stats?.lowStockItems?.length || 0}
+                                </h3>
+                            </div>
+                            <div className="p-2 md:p-3 bg-red-50 text-red-500 rounded-xl mb-2 md:mb-0 order-1 md:order-2 shrink-0 group-hover:bg-red-500 group-hover:text-white transition-colors">
+                                <AlertTriangle size={20} className="md:w-7 md:h-7" />
+                            </div>
                         </div>
-                        <div className="p-1.5 md:p-3 bg-red-50 text-red-500 rounded-xl mb-1 md:mb-0 order-1 md:order-2 shrink-0">
-                            <AlertTriangle size={18} className="md:w-7 md:h-7" />
-                        </div>
-                    </div>
+                    </Link>
 
                     {/* Card 3 */}
                     <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
