@@ -161,17 +161,19 @@ export default function Dashboard() {
                     </Link>
 
                     {/* Card 3 */}
-                    <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
-                        <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
-                            <p className="text-[10px] md:text-sm font-medium text-gray-500 mb-0.5 md:mb-1 whitespace-nowrap">คลังสินค้า</p>
-                            <h3 className="text-lg md:text-3xl font-bold text-purple-600 truncate">
-                                {stats?.warehouseStats?.length || 0}
-                            </h3>
+                    <Link href="/warehouses" className="group">
+                        <div className="bg-white p-2 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center md:flex-row md:justify-between transition-shadow hover:shadow-md cursor-pointer">
+                            <div className="text-center md:text-left order-2 md:order-1 w-full overflow-hidden">
+                                <p className="text-[10px] md:text-sm font-medium text-gray-500 mb-0.5 md:mb-1 whitespace-nowrap">คลังสินค้า</p>
+                                <h3 className="text-lg md:text-3xl font-bold text-purple-600 truncate">
+                                    {stats?.warehouseStats?.length || 0}
+                                </h3>
+                            </div>
+                            <div className="p-1.5 md:p-3 bg-purple-50 text-purple-600 rounded-xl mb-1 md:mb-0 order-1 md:order-2 shrink-0">
+                                <Warehouse size={18} className="md:w-7 md:h-7" />
+                            </div>
                         </div>
-                        <div className="p-1.5 md:p-3 bg-purple-50 text-purple-600 rounded-xl mb-1 md:mb-0 order-1 md:order-2 shrink-0">
-                            <Warehouse size={18} className="md:w-7 md:h-7" />
-                        </div>
-                    </div>
+                    </Link>
                 </div>
 
                 {/* --- Section 2: Warehouse Grid --- */}
