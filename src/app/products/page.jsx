@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+
+import { useEffect, useState, useRef, Suspense } from 'react'; // ✅ เพิ่ม Suspense
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/axios';
 import Swal from 'sweetalert2';
@@ -8,7 +9,7 @@ import { Filter, Search, Trash2, Plus, X, Upload, Wand2, Save, Download, Box, Ed
 import Barcode from 'react-barcode';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { useSearchParams } from 'next/navigation'; // ✅ เพิ่มบรรทัดนี้
+import { useSearchParams } from 'next/navigation';
 
 const CATEGORIES = ["ทั้งหมด", "เครื่องมือแพทย์", "อุปกรณ์ไฟฟ้า", "อุปกรณ์คอมพิวเตอร์", "ครุภัณฑ์", "เกษตร", "ก่อสร้าง", "สื่อการสอน", "งานไฟฟ้า",
     "เฟอร์นิเจอร์", "ครัวเรือน", "เทคโนโลยี", "เครื่องจักร",
@@ -19,17 +20,17 @@ const UNITS = ["ชิ้น", "กล่อง", "แพ็ค", "โหล", "
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-export default function ProductsPage() {
+// ✅ 1. แยก Logic การทำงานหลักมาไว้ใน Component ชื่อ ProductsContent
+function ProductsContent() {
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
 
-    // ✅ เพิ่ม State สำหรับ Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(20); // แสดงหน้าละ 20 รายการ
+    const [itemsPerPage] = useState(20);
 
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
-    const [showLowStock, setShowLowStock] = useState(false); // ✅ เพิ่ม State สำหรับกรองสินค้าใกล้หมด
+    const [showLowStock, setShowLowStock] = useState(false);
     const [role, setRole] = useState('');
     const [warehouses, setWarehouses] = useState([]);
 
@@ -48,11 +49,10 @@ export default function ProductsPage() {
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
     const barcodeRef = useRef(null);
-    
-    // ✅ 1. เรียกใช้ Hook เพื่ออ่าน URL
+
+    // ✅ เรียกใช้ Hook เพื่ออ่าน URL (ทำงานได้ปกติเพราะถูกห่อด้วย Suspense แล้ว)
     const searchParams = useSearchParams();
 
-    // ✅ 2. เช็คว่าถ้า URL มีคำว่า ?filter=low_stock ให้เปิดโหมดสินค้าใกล้หมด
     useEffect(() => {
         const filterParam = searchParams.get('filter');
         if (filterParam === 'low_stock') {
@@ -101,17 +101,13 @@ export default function ProductsPage() {
             result = result.filter(p => Number(p.total_stock) < 20);
         }
         setFilteredProducts(result);
-        setCurrentPage(1); // รีเซ็ตไปหน้า 1 เวลาค้นหา
+        setCurrentPage(1);
     }, [search, selectedCategory, showLowStock, products]);
 
-    // ✅ คำนวณข้อมูลที่จะแสดงในหน้าปัจจุบัน
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-    // ✅ นับจำนวนสินค้าใกล้หมด
-    const lowStockCount = products.filter(p => Number(p.total_stock) < 20).length;
 
     const handleExportExcel = async () => {
         Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -228,18 +224,6 @@ export default function ProductsPage() {
         }
     };
 
-    const downloadBarcode = () => {
-        const svg = barcodeRef.current.querySelector("svg");
-        if (!svg) return;
-        saveSvgAsPng(svg, formData.sku);
-    };
-
-    const downloadFromViewer = () => {
-        const svg = viewerRef.current.querySelector("svg");
-        if (!svg) return;
-        saveSvgAsPng(svg, selectedSku);
-    };
-
     const saveSvgAsPng = (svg, filename) => {
         const svgData = new XMLSerializer().serializeToString(svg);
         const canvas = document.createElement("canvas");
@@ -258,6 +242,18 @@ export default function ProductsPage() {
         };
         img.src = "data:image/svg+xml;base64," + btoa(svgData);
     }
+
+    const downloadBarcode = () => {
+        const svg = barcodeRef.current.querySelector("svg");
+        if (!svg) return;
+        saveSvgAsPng(svg, formData.sku);
+    };
+
+    const downloadFromViewer = () => {
+        const svg = viewerRef.current.querySelector("svg");
+        if (!svg) return;
+        saveSvgAsPng(svg, selectedSku);
+    };
 
     const getBarcodeFile = () => {
         return new Promise((resolve) => {
@@ -346,6 +342,7 @@ export default function ProductsPage() {
         });
     };
 
+    // --- ส่วนของ JSX (UI) ทั้งหมด ---
     return (
         <div className="flex bg-slate-50 min-h-screen font-sans overflow-x-hidden">
             <Sidebar />
@@ -608,188 +605,220 @@ export default function ProductsPage() {
                                             </>
                                         ) : (
                                             <>
-                                                <div className="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
-                                                    <Upload size={28} className="text-indigo-500" />
-                                                </div>
-                                                <span className="text-xs md:text-sm text-slate-500 font-medium">อัปโหลดรูปภาพ</span>
+                                                <Upload size={32} className="text-slate-400 group-hover:text-indigo-500 transition-colors mb-2" />
+                                                <span className="text-slate-400 text-xs md:text-sm font-medium group-hover:text-indigo-600">อัปโหลดรูปภาพ</span>
                                             </>
                                         )}
-                                        <input type="file" ref={fileInputRef} className="hidden" onChange={handleImageChange} accept="image/*" />
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Form Fields */}
-                                <div className="space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">ชื่อสินค้า <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="ระบุชื่อสินค้า"
+                                            required
+                                        />
+                                    </div>
+
                                     <div>
-                                        <label className="block text-sm md:text-base font-semibold text-slate-700 mb-2">รหัสสินค้า (SKU)</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">รหัสสินค้า (SKU) <span className="text-red-500">*</span></label>
                                         <div className="flex gap-2">
                                             <input
                                                 type="text"
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-mono text-sm"
                                                 value={formData.sku}
                                                 onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                                className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm md:text-base"
-                                                placeholder="ระบุรหัส หรือกดปุ่มสุ่ม"
+                                                placeholder="หรือกดสร้างอัตโนมัติ"
+                                                required
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleGenerateSKU}
-                                                className="px-5 bg-purple-50 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-100 font-medium text-sm md:text-base flex items-center gap-2 transition whitespace-nowrap"
+                                                className="bg-indigo-100 text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-200 transition-colors"
+                                                title="สร้างรหัสอัตโนมัติ"
                                             >
-                                                <Wand2 size={18} /> สุ่ม
+                                                <Wand2 size={20} />
                                             </button>
                                         </div>
-
-                                        {/* Barcode Preview inside Form */}
-                                        {formData.sku && (
-                                            <div className="mt-4 p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col items-center">
-                                                <div ref={barcodeRef} className="bg-white p-3 rounded shadow-sm mb-3 max-w-full overflow-hidden">
-                                                    <Barcode value={formData.sku} format="CODE128" width={1.8} height={50} fontSize={14} />
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={downloadBarcode}
-                                                    className="text-xs md:text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium bg-emerald-50 px-4 py-2 rounded-full"
-                                                >
-                                                    <Download size={16} /> ดาวน์โหลดบาร์โค้ด
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm md:text-base font-semibold text-slate-700 mb-2">ชื่อสินค้า</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">หมวดหมู่</label>
+                                        <select
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm appearance-none cursor-pointer"
+                                            value={formData.category}
+                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                        >
+                                            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">ราคาทุน (บาท)</label>
                                         <input
-                                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm md:text-base"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            placeholder="ชื่อสินค้าฉบับเต็ม"
+                                            type="number"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm"
+                                            value={formData.cost_price}
+                                            onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                                            min="0"
                                         />
                                     </div>
 
-                                    {/* Responsive Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
-                                        <div>
-                                            <label className="block text-sm md:text-base font-semibold text-slate-700 mb-2">หมวดหมู่</label>
-                                            <div className="relative">
-                                                <select
-                                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all appearance-none text-sm md:text-base cursor-pointer"
-                                                    value={formData.category}
-                                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                                >
-                                                    {CATEGORIES.filter(c => c !== "ทั้งหมด").map(c => <option key={c}>{c}</option>)}
-                                                </select>
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm md:text-base font-semibold text-slate-700 mb-2">หน่วยนับ</label>
-                                            <div className="relative">
-                                                <select
-                                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all appearance-none text-sm md:text-base cursor-pointer"
-                                                    value={formData.unit}
-                                                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                                >
-                                                    {UNITS.map(u => <option key={u}>{u}</option>)}
-                                                </select>
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">ราคาขาย (บาท)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm"
+                                            value={formData.sale_price}
+                                            onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                                            min="0"
+                                        />
                                     </div>
 
-                                    {/* Initial Stock Section */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">หน่วยนับ</label>
+                                        <select
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm appearance-none cursor-pointer"
+                                            value={formData.unit}
+                                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                        >
+                                            {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">จุดสั่งซื้อเพิ่ม (Reorder Point)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm"
+                                            value={formData.reorder_point}
+                                            onChange={(e) => setFormData({ ...formData, reorder_point: e.target.value })}
+                                            min="0"
+                                        />
+                                    </div>
+
                                     {!editingId && (
-                                        <div className="p-4 md:p-6 bg-indigo-50/50 rounded-xl border border-indigo-100">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <Box className="text-indigo-500" size={20} />
-                                                <label className="text-sm md:text-base font-bold text-indigo-900">ตั้งค่าสต็อกเริ่มต้น</label>
+                                        <>
+                                            <div className="md:col-span-2 border-t border-slate-100 my-2"></div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1.5">จำนวนเริ่มต้น</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm"
+                                                    value={formData.initial_stock}
+                                                    onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })}
+                                                    placeholder="จำนวนสต็อกตั้งต้น"
+                                                    min="0"
+                                                />
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                <div>
-                                                    <label className="text-xs md:text-sm font-semibold text-slate-600 mb-2 block">คลังสินค้า</label>
-                                                    <select
-                                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-sm md:text-base bg-white"
-                                                        value={formData.warehouse_id}
-                                                        onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
-                                                    >
-                                                        {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs md:text-sm font-semibold text-slate-600 mb-2 block">จำนวนเริ่มต้น</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-sm md:text-base"
-                                                        value={formData.initial_stock}
-                                                        onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })}
-                                                        placeholder="0"
-                                                    />
-                                                </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1.5">เลือกคลังจัดเก็บ</label>
+                                                <select
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-sm appearance-none cursor-pointer"
+                                                    value={formData.warehouse_id}
+                                                    onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
+                                                >
+                                                    <option value="" disabled>-- เลือกคลัง --</option>
+                                                    {warehouses.map(w => (
+                                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Barcode Preview (Hidden but used for generation) */}
+                                    {formData.sku && (
+                                        <div className="hidden">
+                                            <div ref={barcodeRef}>
+                                                <Barcode value={formData.sku} format="CODE128" width={2} height={50} displayValue={true} />
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </form>
                         </div>
-                        <div className="p-4 md:p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+
+                        <div className="p-4 md:p-6 border-t border-slate-100 flex gap-3 justify-end bg-slate-50">
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-6 py-3 rounded-xl text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 font-medium transition text-sm md:text-base"
+                                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 transition-all text-sm font-medium"
                             >
                                 ยกเลิก
                             </button>
                             <button
-                                className="px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium shadow-md shadow-indigo-200 flex items-center gap-2 transition text-sm md:text-base"
                                 onClick={handleSubmit}
+                                className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all text-sm font-medium flex gap-2 items-center"
                             >
-                                <Save size={20} /> {editingId ? "บันทึก" : "ยืนยัน"}
+                                <Save size={18} /> บันทึกข้อมูล
                             </button>
+                            {/* ปุ่มโหลดบาร์โค้ด (เฉพาะตอนแก้ไขที่มี SKU แล้ว) */}
+                            {formData.sku && (
+                                <button
+                                    type="button"
+                                    onClick={downloadBarcode}
+                                    className="px-5 py-2.5 rounded-xl bg-slate-800 text-white hover:bg-slate-900 transition-all text-sm font-medium flex gap-2 items-center"
+                                >
+                                    <ScanBarcode size={18} /> โหลดบาร์โค้ด
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* MODAL Barcode Viewer */}
+            {/* Modal ดู Barcode ขยายใหญ่ (ถ้ามี) */}
             {selectedSku && (
                 <div
-                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-60"
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
                     onClick={() => setSelectedSku(null)}
                 >
                     <div
-                        className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200 max-w-sm w-full"
-                        onClick={e => e.stopPropagation()}
+                        className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-200 max-w-sm w-full"
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex justify-between w-full items-center">
-                            <h3 className="text-lg md:text-xl font-bold text-slate-800">Barcode Viewer</h3>
-                            <button onClick={() => setSelectedSku(null)} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24} className="text-slate-400" /></button>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6">Barcode สินค้า</h3>
+                        <div className="bg-white p-4 border border-slate-100 rounded-xl mb-6 w-full flex justify-center" ref={viewerRef}>
+                            <Barcode value={selectedSku} format="CODE128" width={2} height={80} displayValue={true} fontSize={16} />
                         </div>
-
-                        <div ref={viewerRef} className="p-6 bg-white border-2 border-dashed border-slate-200 rounded-2xl w-full flex justify-center overflow-hidden">
-                            {/* Render Barcode only here in Modal */}
-                            <div className="max-w-full overflow-x-auto">
-                                <Barcode
-                                    value={selectedSku}
-                                    format="CODE128"
-                                    width={2}
-                                    height={80}
-                                    fontSize={18}
-                                    displayValue={true}
-                                />
-                            </div>
-                        </div>
-
                         <div className="flex gap-3 w-full">
-                            <button onClick={downloadFromViewer} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-semibold flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all text-sm md:text-base">
-                                <Download size={20} /> บันทึกรูปภาพ
+                            <button
+                                onClick={() => setSelectedSku(null)}
+                                className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition font-medium"
+                            >
+                                ปิด
+                            </button>
+                            <button
+                                onClick={downloadFromViewer}
+                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition font-medium flex justify-center items-center gap-2"
+                            >
+                                <Download size={20} /> ดาวน์โหลด
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-
         </div>
+    );
+}
+
+// ✅ 2. Export Default Component ที่ห่อด้วย Suspense เพื่อแก้ Prerender Error
+export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">กำลังโหลดข้อมูล...</div>}>
+            <ProductsContent />
+        </Suspense>
     );
 }
